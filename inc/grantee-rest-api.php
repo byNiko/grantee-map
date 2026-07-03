@@ -56,7 +56,7 @@ function grantee_get_org_map_data( $org ) {
 
     $data = [
         'id'           => $org->ID,
-        'title'        => get_the_title( $org->ID ),
+        'title'        => html_entity_decode( get_the_title( $org->ID ), ENT_QUOTES, 'UTF-8' ),
         'excerpt'      => wp_trim_words( $org->post_content, 25 ),
         'lat'          => (float) $map_data['lat'],
         'lng'          => (float) $map_data['lng'],
