@@ -44,7 +44,8 @@
 	// ── Single map init ───────────────────────────────────────────
 	function initSingleMap( wrap, style ) {
 		const mapEl           = wrap.querySelector( '.grantee-map-canvas' );
-		const orgTypeSelect   = wrap.querySelector( '.grantee-filter-org-type' );
+		const typeChipsEl     = wrap.querySelector( '.grantee-type-chips' );
+		const searchInput     = wrap.querySelector( '.grantee-search' );
 		const countEl         = wrap.querySelector( '.grantee-count' );
 		const loadingEl       = wrap.querySelector( '.grantee-map-loading' );
 		const resetBtn        = wrap.querySelector( '.grantee-filter-reset' );
@@ -133,11 +134,13 @@
 		}
 
 		// ── Data ──────────────────────────────────────────────────
-		let allOrgs     = [];
-		let minYear     = null;
-		let maxYear     = null;
-		let playTimer   = null;
-		const markerIndex = new Map(); // org id -> L.Marker currently on the map
+		let allOrgs        = [];
+		let minYear        = null;
+		let maxYear        = null;
+		let playTimer      = null;
+		let searchDebounce = null;
+		const activeTypes  = new Set();
+		const markerIndex  = new Map(); // org id -> L.Marker currently on the map
 
 		setLoading( true );
 
@@ -145,7 +148,7 @@
 			.then( ( r ) => r.json() )
 			.then( ( orgs ) => {
 				allOrgs = orgs;
-				buildOrgTypeOptions();
+				buildTypeChips();
 				buildTimeline();
 				applyFilters();
 				setLoading( false );
@@ -155,34 +158,67 @@
 				setLoading( false );
 			} );
 
-		// ── Build org type dropdown from data ─────────────────────
-		function buildOrgTypeOptions() {
-			if ( ! orgTypeSelect ) return;
+		// ── Build org type filter chips from data (also serves as legend) ─
+		function buildTypeChips() {
+			if ( ! typeChipsEl ) return;
 
 			const counts = {};
 			allOrgs.forEach( ( g ) => {
 				( g.org_types || [] ).forEach( ( t ) => {
-					if ( ! counts[ t.slug ] ) counts[ t.slug ] = { name: t.name, count: 0 };
+					if ( ! counts[ t.slug ] ) counts[ t.slug ] = { name: t.name, count: 0, color: t.color };
 					counts[ t.slug ].count++;
 				} );
 			} );
 
 			Object.entries( counts )
 				.sort( ( a, b ) => a[ 1 ].name.localeCompare( b[ 1 ].name ) )
-				.forEach( ( [ slug, { name, count } ] ) => {
-					const opt       = document.createElement( 'option' );
-					opt.value       = slug;
-					opt.textContent = `${ name } (${ count })`;
-					orgTypeSelect.appendChild( opt );
+				.forEach( ( [ slug, { name, count, color } ] ) => {
+					const chipColor = color || defaultMarkerColor;
+					const chip      = document.createElement( 'button' );
+					chip.type       = 'button';
+					chip.className  = 'grantee-type-chip';
+					chip.dataset.slug = slug;
+					chip.setAttribute( 'aria-pressed', 'false' );
+					chip.style.setProperty( '--chip-color', chipColor );
+					chip.style.setProperty( '--chip-text', contrastColor( chipColor ) );
+					chip.innerHTML  = `<span class="grantee-type-chip-swatch"></span>${ escHtml( name ) } (${ count })`;
+					chip.addEventListener( 'click', () => {
+						if ( activeTypes.has( slug ) ) {
+							activeTypes.delete( slug );
+							chip.setAttribute( 'aria-pressed', 'false' );
+						} else {
+							activeTypes.add( slug );
+							chip.setAttribute( 'aria-pressed', 'true' );
+						}
+						applyFilters();
+					} );
+					typeChipsEl.appendChild( chip );
 				} );
 		}
 
-		// ── Filter change handler ─────────────────────────────────
-		if ( orgTypeSelect ) orgTypeSelect.addEventListener( 'change', () => applyFilters() );
+		function contrastColor( hex ) {
+			const c = String( hex || '' ).replace( '#', '' );
+			if ( c.length !== 6 ) return '#fff';
+			const r = parseInt( c.substr( 0, 2 ), 16 );
+			const g = parseInt( c.substr( 2, 2 ), 16 );
+			const b = parseInt( c.substr( 4, 2 ), 16 );
+			const luminance = ( 0.299 * r + 0.587 * g + 0.114 * b ) / 255;
+			return luminance > 0.6 ? '#111' : '#fff';
+		}
+
+		// ── Search input handler (debounced) ──────────────────────
+		if ( searchInput ) {
+			searchInput.addEventListener( 'input', () => {
+				clearTimeout( searchDebounce );
+				searchDebounce = setTimeout( () => applyFilters(), 250 );
+			} );
+		}
 
 		if ( resetBtn ) {
 			resetBtn.addEventListener( 'click', () => {
-				if ( orgTypeSelect ) orgTypeSelect.value = '';
+				activeTypes.clear();
+				typeChipsEl?.querySelectorAll( '.grantee-type-chip' ).forEach( ( chip ) => chip.setAttribute( 'aria-pressed', 'false' ) );
+				if ( searchInput ) searchInput.value = '';
 				stopPlayback();
 				if ( timelineSlider && maxYear !== null ) {
 					timelineSlider.value = maxYear;
@@ -275,11 +311,12 @@
 
 		// ── Apply filter, update markers and count ────────────────
 		function applyFilters( { fit = true } = {} ) {
-			const orgType    = orgTypeSelect ? orgTypeSelect.value : '';
+			const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
 			const yearCutoff = timelineSlider && timelineWrap && ! timelineWrap.hidden ? parseInt( timelineSlider.value, 10 ) : null;
 
 			const filtered = allOrgs.filter( ( g ) => {
-				if ( orgType && ! ( g.org_types || [] ).some( ( t ) => t.slug === orgType ) ) return false;
+				if ( activeTypes.size > 0 && ! ( g.org_types || [] ).some( ( t ) => activeTypes.has( t.slug ) ) ) return false;
+				if ( searchTerm && ! ( g.title || '' ).toLowerCase().includes( searchTerm ) ) return false;
 				if ( yearCutoff !== null ) {
 					const orgYears = getOrgYears( g );
 					if ( orgYears.length > 0 && Math.min( ...orgYears ) > yearCutoff ) return false;
@@ -289,7 +326,7 @@
 
 			renderMarkers( filtered, fit );
 			if ( countEl ) countEl.textContent = filtered.length;
-			if ( resetBtn ) resetBtn.hidden = ! orgType && yearCutoff === maxYear;
+			if ( resetBtn ) resetBtn.hidden = activeTypes.size === 0 && ! searchTerm && yearCutoff === maxYear;
 		}
 
 		// ── Render markers (diffed so unchanged orgs don't re-animate) ─
@@ -321,7 +358,15 @@
 				}
 			} );
 
-			if ( fit && nextIds.size > 0 ) {
+			if ( ! fit || nextIds.size === 0 ) return;
+
+			if ( nextIds.size === 1 ) {
+				const onlyId  = nextIds.values().next().value;
+				const onlyOrg = orgs.find( ( g ) => g.id === onlyId );
+				const marker  = markerIndex.get( onlyId );
+				map.flyTo( [ onlyOrg.lat, onlyOrg.lng ], Math.max( map.getZoom(), 12 ), { duration: 0.8 } );
+				if ( marker ) setTimeout( () => marker.openPopup(), 500 );
+			} else {
 				map.fitBounds( markers.getBounds(), { padding: [ 40, 40 ], maxZoom: 12 } );
 			}
 		}
