@@ -1,6 +1,6 @@
 # Grantee Map
 
-An interactive Leaflet map of grantee organizations with color-coded markers and client-side filtering by organization type. Built for WordPress + ACF Pro.
+An interactive Leaflet map of grantee organizations with color-coded markers, a name search box, multi-select organization-type filter chips (which double as a legend), and a year timeline scrubber that animates the foundation's reach growing over time. Built for WordPress + ACF Pro.
 
 ---
 
@@ -23,7 +23,7 @@ An interactive Leaflet map of grantee organizations with color-coded markers and
 | Taxonomies | `grant-cycle`, `grant-types`, `disciplines` on `wilhelm_grantee`. Only registered if not already present. |
 | ACF field groups | Loaded from `acf-json/` — org location, website, image, and relationship to awards. |
 | REST endpoint | `GET /wp-json/grantees/v1/map` — returns all orgs with embedded org type data. Cached per org via transients. |
-| `[grantees_map]` shortcode | Renders the map with org type filter dropdown and grantee count. |
+| `[grantees_map]` shortcode | Renders the map with a name search box, multi-select org-type filter chips, a year timeline scrubber, and a live grantee count. |
 | Page template | **Grantee Map** page template (registered from the plugin, no theme file needed). |
 | Bidirectional sync | Keeps the org→award and award→org relationship fields in sync on save. |
 | Migration tool | Creates org posts from existing award posts grouped by title. |
@@ -125,9 +125,22 @@ Create a new page and assign the **Grantee Map** page template under **Page Attr
 |---|---|---|
 | `center_lat` | `39.5` | Initial map center latitude |
 | `center_lng` | `-98.35` | Initial map center longitude |
-| `zoom` | `4` | Initial zoom level |
+| `zoom` | `4` | Initial zoom level. Fractional values (e.g. `4.5`) are supported — the map uses `zoomSnap: 0.25`. |
+
+The default (unfiltered) view always uses `center_lat`/`center_lng`/`zoom` as-is rather than fitting to marker bounds, so a few outlying orgs (e.g. Caribbean locations) don't zoom the map out over open ocean. If the default framing looks too wide or too tight for a given page, adjust `zoom` rather than relying on auto-fit. Once a search, org-type chip, or timeline year narrows the results, the map does fit/fly to the filtered markers.
 
 The map height is controlled by CSS (`aspect-ratio: 100 / 66` by default) rather than a shortcode attribute.
+
+---
+
+## Features
+
+- **Search** — a text box filters grantees by name as you type.
+- **Organization type chips** — colored, multi-select chips (colors match the marker dots, so they also serve as a legend). Selecting more than one is an OR filter.
+- **Year timeline** — a scrubber below the map filters to orgs whose earliest award year is at or before the selected year, so dragging it shows the foundation's geographic reach growing over time. The play button animates automatically from the earliest to the latest year. Only appears if grant-cycle year data exists and spans more than one year.
+- **Fly-to on single result** — when search, chips, and/or the timeline narrow the map down to exactly one grantee, the map flies to it and opens its popup instead of doing a generic bounds fit.
+- **Marker pop-in animation** — newly appearing markers animate in with a small scale/fade, most noticeable while scrubbing or playing the timeline. Respects `prefers-reduced-motion`.
+- **Reset** — clears search, chips, and the timeline back to the default view in one click. Only shown when a filter is active.
 
 ---
 
@@ -184,6 +197,7 @@ All utilities require admin login and output a results page when run.
 | `/wp-admin/?check_grantee_orphans=1` | List award posts not linked to any org |
 | `/wp-admin/?seed_org_types=1` | Create default org type terms and randomly assign 1–3 to each org (dev/testing only) |
 | `/wp-admin/?seed_grantee_locations=1` | Seed placeholder map locations onto orgs that have no coordinates (dev/testing only) |
+| `/wp-admin/?clear_grantee_map_cache=1` | Flush the cached map data for every org, forcing a rebuild on next map load |
 
 ---
 
@@ -191,10 +205,12 @@ All utilities require admin login and output a results page when run.
 
 Org data is cached per-org using WordPress transients (1 week TTL). The cache is automatically busted when an org or any of its linked awards is saved.
 
-To manually clear all map cache, bulk-edit all orgs in **Grantees → Organizations** (select all → Edit → Apply), or run this SQL:
+To manually clear all map cache, visit `/wp-admin/?clear_grantee_map_cache=1` (admin login required), bulk-edit all orgs in **Grantees → Organizations** (select all → Edit → Apply), or run this SQL:
 
 ```sql
 DELETE FROM wp_options
 WHERE option_name LIKE '_transient_grantee_org_map_%'
    OR option_name LIKE '_transient_timeout_grantee_org_map_%';
 ```
+
+Note: after deploying a code change that alters what gets cached (e.g. a fix to how a field is formatted), existing cached entries won't reflect it until they expire or are flushed — the admin utility above is the quickest way to force it on a live site.
