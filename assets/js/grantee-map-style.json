@@ -1,0 +1,22 @@
+{
+	"tiles": {
+		"url": "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+		"attribution": "&copy; <a href='https://www.openstreetmap.org/copyright' target='_blank'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/attributions' target='_blank'>CARTO</a>",
+		"maxZoom": 19,
+		"retina": true
+	},
+	"marker": {
+		"color": "#1a1a1a",
+		"borderColor": "#ffffff",
+		"size": 11
+	},
+	"cluster": {
+		"background": "#1a1a1a",
+		"color": "#ffffff",
+		"opacity": 1
+	},
+	"popup": {
+		"accentColor": "#1a1a1a",
+		"linkColor": "#1a1a1a"
+	}
+}

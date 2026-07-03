@@ -1,0 +1,62 @@
+{
+    "key": "group_grantee_org_ref",
+    "title": "Organization Reference",
+    "fields": [
+        {
+            "key": "field_grantee_org_ref",
+            "label": "Grantee Organization",
+            "name": "grantee_org_ref",
+            "aria-label": "",
+            "type": "relationship",
+            "instructions": "Link this award to the parent organization.",
+            "required": 0,
+            "conditional_logic": 0,
+            "wrapper": {
+                "width": "",
+                "class": "",
+                "id": ""
+            },
+            "post_type": [
+                "grantee_org"
+            ],
+            "post_status": [
+                "publish"
+            ],
+            "taxonomy": "",
+            "filters": [
+                "search"
+            ],
+            "return_format": "id",
+            "min": "",
+            "max": 1,
+            "allow_in_bindings": 1,
+            "elements": "",
+            "bidirectional": 1,
+            "bidirectional_target": [
+                "field_grantee_relationship"
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "post_type",
+                "operator": "==",
+                "value": "wilhelm_grantee"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "side",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "hide_on_screen": "",
+    "active": true,
+    "description": "",
+    "show_in_rest": 0,
+    "display_title": "",
+    "allow_ai_access": false,
+    "ai_description": "",
+    "modified": 1779623999
+}
