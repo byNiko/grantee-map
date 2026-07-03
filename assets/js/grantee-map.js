@@ -76,7 +76,7 @@
 			iconCreateFunction( cluster ) {
 				const count = cluster.getChildCount();
 				return L.divIcon( {
-					html:     `<div class="gm-cluster">${count}</div>`,
+					html:     `<div class="gm-cluster" role="img" aria-label="${count} organizations in this area">${count}</div>`,
 					className: '',
 					iconSize:  L.point( 36, 36 ),
 				} );
@@ -199,8 +199,12 @@
 				if ( ! g.lat || ! g.lng ) return;
 				const colors = ( g.org_types || [] ).map( ( t ) => t.color ).filter( Boolean );
 				const icon   = makeIcon( colors );
-				const marker = L.marker( [ g.lat, g.lng ], { icon } );
+				const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
 				marker.bindPopup( buildPopup( g ), { maxWidth: 340, className: 'grantee-popup' } );
+				marker.on( 'popupclose', () => {
+					const el = marker.getElement();
+					if ( el ) el.focus();
+				} );
 				markers.addLayer( marker );
 			} );
 
@@ -228,7 +232,7 @@
 				html += `<p class="grantee-popup-terms">${ escHtml( terms ) }</p>`;
 			}
 
-			if ( g.website_url ) {
+			if ( g.website_url && /^https?:\/\//i.test( g.website_url ) ) {
 				const label = g.website_name || g.website_url;
 				html += `<a class="grantee-popup-link" style="color:${ escHtml( accent ) };border-color:${ escHtml( accent ) }33;" href="${ escHtml( g.website_url ) }" target="_blank" rel="noopener">${ escHtml( label ) } &#8599;</a>`;
 			}

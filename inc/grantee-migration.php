@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Grantee Org Migration
  *
@@ -16,10 +18,30 @@ add_action( 'admin_init', 'gm_maybe_run_migration' );
 function gm_maybe_run_migration() {
 	if ( ! isset( $_GET['run_grantee_migration'] ) ) return;
 	if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Unauthorized.' );
-
+	if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_key( $_GET['_wpnonce'] ), 'grantee_migration_run' ) ) {
+		gm_render_migration_confirm();
+		exit;
+	}
 	$dry_run = isset( $_GET['dry_run'] ) && $_GET['dry_run'] === '1';
 	gm_run_migration( $dry_run );
 	exit;
+}
+
+function gm_render_migration_confirm() {
+	$live_url = wp_nonce_url( admin_url( '?run_grantee_migration=1' ), 'grantee_migration_run' );
+	$dry_url  = wp_nonce_url( admin_url( '?run_grantee_migration=1&dry_run=1' ), 'grantee_migration_run' );
+	?><!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Grantee Migration</title>
+<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f0f0f1;padding:40px 20px;color:#1d2327}.wrap{max-width:600px;margin:0 auto}h1{font-size:22px;font-weight:600;margin-bottom:10px}p{font-size:14px;color:#555;margin-bottom:28px}.actions{display:flex;gap:12px}.btn{display:inline-block;padding:10px 20px;border-radius:5px;font-size:13px;font-weight:600;text-decoration:none}.btn-primary{background:#2271b1;color:#fff}.btn-muted{background:#fff;color:#646970;border:1.5px solid #c3c4c7}</style>
+</head><body><div class="wrap">
+	<h1>Grantee Migration</h1>
+	<p>This will create <code>grantee_org</code> posts from existing award posts. Run a dry run first to preview changes.</p>
+	<div class="actions">
+		<a class="btn btn-muted" href="<?php echo esc_url( $dry_url ); ?>">Dry run (preview)</a>
+		<a class="btn btn-primary" href="<?php echo esc_url( $live_url ); ?>">Run for real →</a>
+	</div>
+</div></body></html>
+<?php
 }
 
 function gm_run_migration( $dry_run = false ) {
@@ -146,8 +168,8 @@ function gm_mlog( &$log, $message ) {
 
 function gm_render_migration( $log, $dry_run, $stats ) {
 	$title    = $dry_run ? 'Grantee Migration — Dry Run' : 'Grantee Migration — Complete';
-	$live_url = admin_url( '?run_grantee_migration=1' );
-	$dry_url  = admin_url( '?run_grantee_migration=1&dry_run=1' );
+	$live_url = wp_nonce_url( admin_url( '?run_grantee_migration=1' ), 'grantee_migration_run' );
+	$dry_url  = wp_nonce_url( admin_url( '?run_grantee_migration=1&dry_run=1' ), 'grantee_migration_run' );
 	$orgs_url = admin_url( 'edit.php?post_type=' . GM_ORG_CPT );
 	?><!DOCTYPE html>
 <html>

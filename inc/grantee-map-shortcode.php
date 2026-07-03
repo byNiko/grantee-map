@@ -1,4 +1,5 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
  * Grantee Map Shortcode
@@ -104,8 +105,16 @@ function grantee_map_shortcode($atts) {
 
 
 
+        <p id="<?php echo esc_attr($map_id); ?>-instructions" class="screen-reader-text">
+            Interactive map of grantee organizations. Use arrow keys to pan, plus and minus keys to zoom. Press Enter on a marker to open its details.
+        </p>
+
         <div class="grantee-map-aspect">
-            <div id="<?php echo esc_attr($map_id); ?>" class="grantee-map-canvas"></div>
+            <div id="<?php echo esc_attr($map_id); ?>"
+                class="grantee-map-canvas"
+                role="application"
+                aria-label="Grantee organizations map"
+                aria-describedby="<?php echo esc_attr($map_id); ?>-instructions"></div>
         </div>
 
         <div class="grantee-map-loading" aria-live="polite">

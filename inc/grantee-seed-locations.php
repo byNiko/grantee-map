@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Grantee Org — Seed Random US Locations
  *
@@ -17,7 +19,11 @@ add_action( 'admin_init', 'gsl_maybe_run' );
 function gsl_maybe_run() {
 	if ( ! isset( $_GET['seed_grantee_locations'] ) ) return;
 	if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Unauthorized.' );
-
+	if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_key( $_GET['_wpnonce'] ), 'grantee_seed_locations' ) ) {
+		$run_url = wp_nonce_url( admin_url( '?seed_grantee_locations=1' ), 'grantee_seed_locations' );
+		$dry_url = wp_nonce_url( admin_url( '?seed_grantee_locations=1&dry_run=1' ), 'grantee_seed_locations' );
+		wp_die( '<p>Confirm: <a href="' . esc_url( $dry_url ) . '">Dry run</a> &nbsp;|&nbsp; <a href="' . esc_url( $run_url ) . '">Run for real →</a></p>', 'Seed Locations' );
+	}
 	$dry_run   = isset( $_GET['dry_run'] )   && $_GET['dry_run']   === '1';
 	$overwrite = isset( $_GET['overwrite'] ) && $_GET['overwrite'] === '1';
 
@@ -57,9 +63,9 @@ function gsl_maybe_run() {
 		$rows[] = [ 'status' => 'seeded', 'title' => $org->post_title, 'id' => $org->ID, 'location' => $loc['address'] ];
 	}
 
-	$live_url      = admin_url( '?seed_grantee_locations=1' );
-	$overwrite_url = admin_url( '?seed_grantee_locations=1&overwrite=1' );
-	$dry_url       = admin_url( '?seed_grantee_locations=1&dry_run=1' );
+	$live_url      = wp_nonce_url( admin_url( '?seed_grantee_locations=1' ), 'grantee_seed_locations' );
+	$overwrite_url = wp_nonce_url( admin_url( '?seed_grantee_locations=1&overwrite=1' ), 'grantee_seed_locations' );
+	$dry_url       = wp_nonce_url( admin_url( '?seed_grantee_locations=1&dry_run=1' ), 'grantee_seed_locations' );
 	?>
 	<!DOCTYPE html>
 	<html>
@@ -100,15 +106,15 @@ function gsl_maybe_run() {
 
 		<div class="stats">
 			<div class="stat">
-				<div class="stat-value"><?php echo count( $orgs ); ?></div>
+				<div class="stat-value"><?php echo absint( count( $orgs ) ); ?></div>
 				<div class="stat-label">Total orgs</div>
 			</div>
 			<div class="stat">
-				<div class="stat-value"><?php echo $seeded; ?></div>
+				<div class="stat-value"><?php echo absint( $seeded ); ?></div>
 				<div class="stat-label"><?php echo $dry_run ? 'Would seed' : 'Seeded'; ?></div>
 			</div>
 			<div class="stat">
-				<div class="stat-value"><?php echo $skipped; ?></div>
+				<div class="stat-value"><?php echo absint( $skipped ); ?></div>
 				<div class="stat-label">Already had location</div>
 			</div>
 		</div>

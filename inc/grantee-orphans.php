@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Grantee Orphan Check
  *
@@ -98,15 +100,15 @@ function grantee_maybe_run_orphan_check() {
 
 		<div class="stats">
 			<div class="stat">
-				<div class="stat-value"><?php echo $total; ?></div>
+				<div class="stat-value"><?php echo absint( $total ); ?></div>
 				<div class="stat-label">Total awards</div>
 			</div>
 			<div class="stat good">
-				<div class="stat-value"><?php echo count( $linked ); ?></div>
+				<div class="stat-value"><?php echo absint( count( $linked ) ); ?></div>
 				<div class="stat-label">Linked to org</div>
 			</div>
 			<div class="stat <?php echo count( $orphans ) ? 'bad' : 'good'; ?>">
-				<div class="stat-value"><?php echo count( $orphans ); ?></div>
+				<div class="stat-value"><?php echo absint( count( $orphans ) ); ?></div>
 				<div class="stat-label">No org found</div>
 			</div>
 		</div>
@@ -128,7 +130,7 @@ function grantee_maybe_run_orphan_check() {
 				<tbody>
 					<?php foreach ( $orphans as $post ) : ?>
 					<tr>
-						<td><?php echo $post->ID; ?></td>
+						<td><?php echo absint( $post->ID ); ?></td>
 						<td><?php echo esc_html( $post->post_title ); ?></td>
 						<td><?php echo esc_html( get_field( 'grant_cycle', $post->ID ) ?: '—' ); ?></td>
 						<td><a href="<?php echo esc_url( get_edit_post_link( $post->ID ) ); ?>" target="_blank">Edit ↗</a></td>

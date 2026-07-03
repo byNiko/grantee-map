@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Grantee bidirectional relationship sync.
  *
@@ -97,6 +99,10 @@ add_action( 'admin_init', 'grantee_maybe_run_bidir_sync' );
 function grantee_maybe_run_bidir_sync() {
 	if ( ! isset( $_GET['sync_grantee_bidir'] ) ) return;
 	if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Unauthorized.' );
+	if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_key( $_GET['_wpnonce'] ), 'grantee_bidir_sync' ) ) {
+		$run_url = wp_nonce_url( admin_url( '?sync_grantee_bidir=1' ), 'grantee_bidir_sync' );
+		wp_die( '<p>Confirm: <a href="' . esc_url( $run_url ) . '">Run bidirectional sync →</a></p>', 'Grantee Sync' );
+	}
 
 	$orgs = get_posts( [
 		'post_type'      => 'grantee_org',
@@ -146,9 +152,9 @@ function grantee_maybe_run_bidir_sync() {
 		<h1>Grantee Bidirectional Sync</h1>
 		<p class="sub">Wrote <code>grantee_org_ref</code> onto all linked award posts directly.</p>
 		<div class="stats">
-			<div class="stat"><div class="stat-value"><?php echo count( $orgs ); ?></div><div class="stat-label">Total orgs</div></div>
-			<div class="stat"><div class="stat-value"><?php echo $updated; ?></div><div class="stat-label">Synced</div></div>
-			<div class="stat"><div class="stat-value" style="color:#666"><?php echo $skipped; ?></div><div class="stat-label">No awards</div></div>
+			<div class="stat"><div class="stat-value"><?php echo absint( count( $orgs ) ); ?></div><div class="stat-label">Total orgs</div></div>
+			<div class="stat"><div class="stat-value"><?php echo absint( $updated ); ?></div><div class="stat-label">Synced</div></div>
+			<div class="stat"><div class="stat-value" style="color:#666"><?php echo absint( $skipped ); ?></div><div class="stat-label">No awards</div></div>
 		</div>
 		<div class="banner">✅ Done — open any award post to confirm Grantee Organization is now populated.</div>
 		<?php if ( $log ) : ?>
@@ -156,7 +162,7 @@ function grantee_maybe_run_bidir_sync() {
 			<thead><tr><th>Org</th><th>Awards</th><th></th></tr></thead>
 			<tbody>
 			<?php foreach ( $log as $r ) : ?>
-				<tr><td><?php echo esc_html( $r['title'] ); ?></td><td><?php echo $r['count']; ?></td><td><a href="<?php echo esc_url( get_edit_post_link( $r['id'] ) ); ?>" target="_blank">Edit ↗</a></td></tr>
+				<tr><td><?php echo esc_html( $r['title'] ); ?></td><td><?php echo absint( $r['count'] ); ?></td><td><a href="<?php echo esc_url( get_edit_post_link( $r['id'] ) ); ?>" target="_blank">Edit ↗</a></td></tr>
 			<?php endforeach; ?>
 			</tbody>
 		</table>

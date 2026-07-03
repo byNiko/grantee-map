@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Organization Type seeder
  *
@@ -11,6 +13,10 @@
 add_action( 'admin_init', function() {
     if ( ! isset( $_GET['seed_org_types'] ) ) return;
     if ( ! current_user_can( 'manage_options' ) ) wp_die( 'Unauthorized.' );
+    if ( ! isset( $_GET['_wpnonce'] ) || ! wp_verify_nonce( sanitize_key( $_GET['_wpnonce'] ), 'grantee_seed_org_types' ) ) {
+        $run_url = wp_nonce_url( admin_url( '?seed_org_types=1' ), 'grantee_seed_org_types' );
+        wp_die( '<p>Confirm: <a href="' . esc_url( $run_url ) . '">Seed org types →</a></p>', 'Seed Org Types' );
+    }
 
     $term_names = [ 'Dance', 'Museum', 'Queer', 'Women Owned' ];
     $term_ids   = [];
@@ -58,7 +64,7 @@ add_action( 'admin_init', function() {
 </style></head><body>
 <div class="wrap">
     <h1>Organization Type Seeder</h1>
-    <div class="banner">✅ Done — <?php echo count( $orgs ); ?> organizations updated</div>
+    <div class="banner">✅ Done — <?php echo absint( count( $orgs ) ); ?> organizations updated</div>
     <ul>
         <?php foreach ( $term_names as $name ) : ?>
             <li>✓ <?php echo esc_html( $name ); ?></li>

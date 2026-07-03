@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Adds a Google Maps API Key field to the existing Theme Settings options page.
  * The key is picked up by ACF's map field picker in the admin.

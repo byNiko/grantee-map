@@ -46,13 +46,15 @@
 }
 
 .grantee-filter-group label {
-	font-size: 11px;
-	font-weight: 600;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: #666;
-	margin: 0;
-	display: none;
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
 }
 
 .grantee-filter-group select {
@@ -82,7 +84,7 @@
 
 .grantee-count-label {
 	font-size: 1rem;
-	color: #888;
+	color: #767676;
 }
 
 .grantee-count-label strong {
@@ -225,13 +227,13 @@
 	font-size: 12px;
 	font-weight: 600;
 	color: #2563eb;
-	text-decoration: none;
-	border-bottom: 1px solid rgba(37,99,235,0.25);
-	transition: border-color 0.15s;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+	transition: opacity 0.15s;
 }
 
 .grantee-popup-link:hover {
-	border-bottom-color: #2563eb;
+	opacity: 0.75;
 }
 
 /* ── Awards list ─────────────────────────────────────────────── */
@@ -246,7 +248,7 @@
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: 0.07em;
-	color: #999;
+	color: #767676;
 	margin: 0 0 8px;
 }
 
@@ -279,7 +281,7 @@
 
 .grantee-award-year {
 	font-size: 11px;
-	color: #888;
+	color: #767676;
 	white-space: nowrap;
 	text-align: right;
 }

@@ -1,4 +1,6 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
+
 /**
  * Grantee Map REST API
  *
@@ -55,13 +57,12 @@ function grantee_get_org_map_data( $org ) {
     $data = [
         'id'           => $org->ID,
         'title'        => get_the_title( $org->ID ),
-        'description'  => apply_filters( 'the_content', $org->post_content ),
         'excerpt'      => wp_trim_words( $org->post_content, 25 ),
         'lat'          => (float) $map_data['lat'],
         'lng'          => (float) $map_data['lng'],
         'address'      => $map_data['address'] ?? '',
         'image'        => $image_url,
-        'website_url'  => get_field( 'website_url', $org->ID ) ?: '',
+        'website_url'  => esc_url_raw( get_field( 'website_url', $org->ID ) ?: '' ),
         'website_name' => get_field( 'website_nicename', $org->ID ) ?: '',
         'funding_goal' => get_field( 'funding_goal', $org->ID ) ?: '',
         'years'        => grantee_get_org_award_years( $org->ID ),
@@ -95,7 +96,7 @@ function grantee_get_org_own_tax_terms( $org_id, $taxonomy ) {
     $terms = get_the_terms( $org_id, $taxonomy );
     if ( ! $terms || is_wp_error( $terms ) ) return [];
     return array_values( array_map( function( $t ) {
-        $color = get_field( 'org_type_color', $t->taxonomy . '_' . $t->term_id );
+        $color = sanitize_hex_color( get_field( 'org_type_color', $t->taxonomy . '_' . $t->term_id ) ?: '' );
         return [ 'slug' => $t->slug, 'name' => $t->name, 'color' => $color ?: '' ];
     }, $terms ) );
 }

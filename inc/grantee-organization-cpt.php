@@ -1,4 +1,5 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit;
 
 define('GM_SOURCE_CPT',    'wilhelm_grantee'); // award posts CPT
 define('GM_ORG_CPT',       'grantee_org');     // parent org CPT
