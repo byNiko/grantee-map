@@ -155,13 +155,14 @@ Edit `assets/js/grantee-map-style.json` to customize the map appearance without 
     "maxZoom": 19,
     "retina": true
   },
-  "marker":  { "color": "#1a1a1a", "borderColor": "#ffffff", "size": 11 },
-  "cluster": { "background": "#ffffff", "color": "#1a1a1a", "opacity": 1 },
-  "popup":   { "accentColor": "#1a1a1a", "linkColor": "#1a1a1a" }
+  "marker": { "color": "#1a1a1a", "borderColor": "#ffffff", "size": 11 },
+  "popup":  { "accentColor": "#1a1a1a", "linkColor": "#1a1a1a" }
 }
 ```
 
-`marker.color` is the fallback dot color for orgs with no org type assigned. Any Leaflet-compatible tile provider URL works in `tiles.url`.
+`marker.color` is the fallback dot color for orgs with no org type assigned (used both for individual markers and, per-slice, for cluster bubbles — see below). Any Leaflet-compatible tile provider URL works in `tiles.url`.
+
+Cluster bubbles aren't configured via this file: each one renders as a pie of the org-type colors it contains (a solid circle if every org inside shares one color), sized up with the number of orgs it groups.
 
 ---
 

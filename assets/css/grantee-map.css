@@ -1,27 +1,24 @@
 /* ── Style JSON CSS variables (defaults — overridden by JS) ──── */
 :root {
-	--gm-accent:     #1a1a1a;
-	--gm-link:       #1a1a1a;
-	--gm-cluster-bg: #1a1a1a;
-	--gm-cluster-fg: #ffffff;
+	--gm-accent: #1a1a1a;
+	--gm-link:   #1a1a1a;
 	--gm-controls-height: 200px; /* filter row + timeline row, plus buffer */
 }
 
-/* ── Custom cluster icon ─────────────────────────────────────── */
-.gm-cluster {
-	width: 36px;
-	height: 36px;
-	border-radius: 50%;
+/* ── Cluster icon — composition-tinted count badge ────────────── */
+.gm-cluster-wrap {
+	width: 100%;
+	height: 100%;
 	display: flex;
 	align-items: center;
 	justify-content: center;
+	border-radius: 50%;
+	border: 1px solid rgba(0,0,0,0.12);
+	box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 	font-size: 12px;
 	font-weight: 700;
 	font-family: inherit;
-	background: rgba(255,255,255,0.75);
 	color: #1a1a1a;
-	box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-	border: 2px solid rgba(0,0,0,0.5);
 }
 
 /* ── Marker pop-in animation ─────────────────────────────────── */

@@ -21,10 +21,8 @@
 
 	function applyStyleVars( style ) {
 		const root = document.documentElement;
-		root.style.setProperty( '--gm-accent',     style.popup?.accentColor  || '#1a1a1a' );
-		root.style.setProperty( '--gm-link',        style.popup?.linkColor    || '#1a1a1a' );
-		root.style.setProperty( '--gm-cluster-bg',  style.cluster?.background || '#1a1a1a' );
-		root.style.setProperty( '--gm-cluster-fg',  style.cluster?.color      || '#ffffff' );
+		root.style.setProperty( '--gm-accent', style.popup?.accentColor || '#1a1a1a' );
+		root.style.setProperty( '--gm-link',   style.popup?.linkColor   || '#1a1a1a' );
 	}
 
 	function defaultStyle() {
@@ -35,9 +33,8 @@
 				maxZoom:     18,
 				retina:      false,
 			},
-			marker:  { color: '#1a1a1a', borderColor: '#ffffff', size: 11 },
-			cluster: { background: '#1a1a1a', color: '#ffffff', opacity: 1 },
-			popup:   { accentColor: '#1a1a1a', linkColor: '#1a1a1a' },
+			marker: { color: '#1a1a1a', borderColor: '#ffffff', size: 11 },
+			popup:  { accentColor: '#1a1a1a', linkColor: '#1a1a1a' },
 		};
 	}
 
@@ -70,19 +67,49 @@
 		} ).addTo( map );
 
 		// ── Marker cluster ────────────────────────────────────────
-		const clusterBg = style.cluster?.background || '#1a1a1a';
-		const clusterFg = style.cluster?.color      || '#ffffff';
-		const clusterOp = style.cluster?.opacity    ?? 1;
-
 		const markers = L.markerClusterGroup( {
 			showCoverageOnHover: false,
 			maxClusterRadius:    50,
 			iconCreateFunction( cluster ) {
-				const count = cluster.getChildCount();
+				const childMarkers = cluster.getAllChildMarkers();
+				const count        = childMarkers.length;
+
+				// Tally org-type colors across every marker in the cluster so the
+				// bubble can show its composition, the same way a multi-type org's
+				// own marker shows a pie of its types.
+				const colorCounts = {};
+				childMarkers.forEach( ( m ) => {
+					const cols = ( m.orgColors && m.orgColors.length ) ? m.orgColors : [ defaultMarkerColor ];
+					cols.forEach( ( c ) => { colorCounts[ c ] = ( colorCounts[ c ] || 0 ) + 1; } );
+				} );
+
+				// Bigger clusters get a bigger bubble, capped so it never dwarfs
+				// the map.
+				const size = Math.round( Math.min( 30 + Math.sqrt( count ) * 5, 60 ) );
+
+				// Colors are pre-mixed toward white (not layered with CSS opacity)
+				// so the count text drawn in the same element stays fully legible.
+				const colors = Object.keys( colorCounts );
+				let background;
+				if ( colors.length <= 1 ) {
+					background = mixWithWhite( colors[ 0 ] || defaultMarkerColor, 0.3 );
+				} else {
+					const total = colors.reduce( ( sum, c ) => sum + colorCounts[ c ], 0 );
+					let pct     = 0;
+					const stops = colors.map( ( color ) => {
+						const start = pct;
+						pct += ( colorCounts[ color ] / total ) * 100;
+						return `${ mixWithWhite( color, 0.3 ) } ${ start.toFixed( 1 ) }% ${ pct.toFixed( 1 ) }%`;
+					} );
+					background = `conic-gradient(${ stops.join( ', ' ) })`;
+				}
+
+				const html = `<div class="gm-cluster-wrap" role="img" aria-label="${count} organizations in this area" style="background:${background}">${count}</div>`;
+
 				return L.divIcon( {
-					html:     `<div class="gm-cluster" role="img" aria-label="${count} organizations in this area">${count}</div>`,
+					html,
 					className: '',
-					iconSize:  L.point( 36, 36 ),
+					iconSize:  L.point( size, size ),
 				} );
 			},
 		} );
@@ -123,13 +150,22 @@
 				</svg>`;
 			}
 
+			// The pop-in animation lives on an inner wrapper, not this element —
+			// Leaflet positions markers via an inline `transform: translate3d(...)`
+			// on the icon's own div, and a CSS animation on the same property
+			// would hijack it for the animation's duration, making the marker
+			// briefly render at (0,0) before snapping to its real position.
+			//
+			// delayMs === null means "no animation at all" — used once a marker's
+			// one-time reveal has already played, so a later icon swap (e.g. after
+			// Leaflet recreates this marker's DOM element when a cluster unfolds)
+			// doesn't replay the pop from scratch.
+			const html = delayMs === null
+				? svg
+				: `<div class="gm-marker-pop" style="animation-delay:${ delayMs }ms">${ svg }</div>`;
+
 			return L.divIcon( {
-				// The pop-in animation lives on an inner wrapper, not this element —
-				// Leaflet positions markers via an inline `transform: translate3d(...)`
-				// on the icon's own div, and a CSS animation on the same property
-				// would hijack it for the animation's duration, making the marker
-				// briefly render at (0,0) before snapping to its real position.
-				html:        `<div class="gm-marker-pop" style="animation-delay:${ delayMs }ms">${ svg }</div>`,
+				html,
 				className:   '',
 				iconSize:    [ size, size ],
 				iconAnchor:  [ cx,   cy   ],
@@ -207,6 +243,19 @@
 			const b = parseInt( c.substr( 4, 2 ), 16 );
 			const luminance = ( 0.299 * r + 0.587 * g + 0.114 * b ) / 255;
 			return luminance > 0.6 ? '#111' : '#fff';
+		}
+
+		// Blends a hex color toward white by `ratio` (0 = white, 1 = full color),
+		// returning an opaque rgb() rather than a translucent color, so cluster
+		// bubble backgrounds stay faded without also fading the count text.
+		function mixWithWhite( hex, ratio ) {
+			const c = String( hex || '' ).replace( '#', '' );
+			if ( c.length !== 6 ) return 'rgb(255,255,255)';
+			const r = parseInt( c.substr( 0, 2 ), 16 );
+			const g = parseInt( c.substr( 2, 2 ), 16 );
+			const b = parseInt( c.substr( 4, 2 ), 16 );
+			const mix = ( ch ) => Math.round( ch * ratio + 255 * ( 1 - ratio ) );
+			return `rgb(${ mix( r ) },${ mix( g ) },${ mix( b ) })`;
 		}
 
 		if ( resetBtn ) {
@@ -325,6 +374,8 @@
 
 		// ── Render markers (diffed so unchanged orgs don't re-animate) ─
 		function renderMarkers( orgs, { fit = true, isDefaultView = false } = {} ) {
+			const isInitialLoad = markerIndex.size === 0;
+
 			const nextIds = new Set();
 			orgs.forEach( ( g ) => {
 				if ( g.lat && g.lng ) nextIds.add( g.id );
@@ -339,11 +390,20 @@
 				.filter( ( g ) => g.lat && g.lng && ! markerIndex.has( g.id ) )
 				.sort( ( a, b ) => a.lng - b.lng );
 
+			// The initial load reveals the whole dataset (~170 orgs) at once, so
+			// it uses a tighter per-marker step to keep the full west-to-east
+			// sweep from taking too long, while a filter/timeline change usually
+			// only reveals a handful of orgs and reads better with more space
+			// between them.
+			const stepMs = isInitialLoad ? 12   : 35;
+			const capMs  = isInitialLoad ? 2500 : 900;
+
 			newOrgs.forEach( ( g, i ) => {
-				const delay  = Math.min( i * 35, 900 );
+				const delay  = Math.min( i * stepMs, capMs );
 				const colors = ( g.org_types || [] ).map( ( t ) => t.color ).filter( Boolean );
 				const icon   = makeIcon( colors, delay );
 				const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
+				marker.orgColors = colors; // read by iconCreateFunction to color cluster bubbles
 				marker.bindPopup( buildPopup( g ), { maxWidth: 340, className: 'grantee-popup' } );
 				marker.on( 'popupclose', () => {
 					const el = marker.getElement();
@@ -351,6 +411,15 @@
 				} );
 				markers.addLayer( marker );
 				markerIndex.set( g.id, marker );
+
+				// The pop-in animation is for this one-time reveal only. Left in
+				// place, Leaflet re-creating this marker's DOM element later —
+				// e.g. zooming into a cluster to unfold it — would replay it from
+				// scratch (a visible double-pop), since any freshly-inserted
+				// element with the animation class plays it regardless of the
+				// baked-in delay. Swap to a non-animated icon once this marker's
+				// reveal has actually finished.
+				setTimeout( () => marker.setIcon( makeIcon( colors, null ) ), delay + 320 );
 			} );
 
 			markerIndex.forEach( ( marker, id ) => {
