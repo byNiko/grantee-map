@@ -58,10 +58,10 @@
 
 		const centerLat = parseFloat( wrap.dataset.centerLat ) || 39.5;
 		const centerLng = parseFloat( wrap.dataset.centerLng ) || -98.35;
-		const zoom      = parseInt( wrap.dataset.zoom, 10 )    || 4;
+		const zoom      = parseFloat( wrap.dataset.zoom )      || 4;
 
 		// ── Leaflet map ───────────────────────────────────────────
-		const map = L.map( mapEl, { center: [ centerLat, centerLng ], zoom, scrollWheelZoom: false } );
+		const map = L.map( mapEl, { center: [ centerLat, centerLng ], zoom, zoomSnap: 0.25, scrollWheelZoom: false } );
 
 		const tiles = style.tiles || {};
 		L.tileLayer( tiles.url, {
@@ -324,13 +324,15 @@
 				return true;
 			} );
 
-			renderMarkers( filtered, fit );
+			const isDefaultView = activeTypes.size === 0 && ! searchTerm && ( yearCutoff === null || yearCutoff === maxYear );
+
+			renderMarkers( filtered, { fit, isDefaultView } );
 			if ( countEl ) countEl.textContent = filtered.length;
 			if ( resetBtn ) resetBtn.hidden = activeTypes.size === 0 && ! searchTerm && yearCutoff === maxYear;
 		}
 
 		// ── Render markers (diffed so unchanged orgs don't re-animate) ─
-		function renderMarkers( orgs, fit = true ) {
+		function renderMarkers( orgs, { fit = true, isDefaultView = false } = {} ) {
 			const nextIds = new Set();
 
 			orgs.forEach( ( g ) => {
@@ -360,7 +362,12 @@
 
 			if ( ! fit || nextIds.size === 0 ) return;
 
-			if ( nextIds.size === 1 ) {
+			if ( isDefaultView ) {
+				// Respect the shortcode's configured center/zoom instead of fitting
+				// to marker bounds — a few outlying orgs (e.g. Caribbean) shouldn't
+				// zoom the whole map out over open ocean.
+				map.setView( [ centerLat, centerLng ], zoom );
+			} else if ( nextIds.size === 1 ) {
 				const onlyId  = nextIds.values().next().value;
 				const onlyOrg = orgs.find( ( g ) => g.id === onlyId );
 				const marker  = markerIndex.get( onlyId );
