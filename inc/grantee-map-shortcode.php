@@ -120,6 +120,15 @@ function grantee_map_shortcode($atts) {
         <div class="grantee-map-loading" aria-live="polite">
             <span>Loading grantees…</span>
         </div>
+
+        <div class="grantee-timeline" hidden>
+            <button type="button" class="grantee-timeline-play" aria-label="Play timeline">
+                <span class="grantee-timeline-play-icon" aria-hidden="true"></span>
+            </button>
+            <input type="range" class="grantee-timeline-slider" min="0" max="1" step="1" value="1" aria-label="Filter grantees by year awarded">
+            <span class="grantee-timeline-year" aria-live="polite">All years</span>
+        </div>
+
         <div class="grantee-map-filters">
             <div class="grantee-filter-group">
                 <label for="<?php echo esc_attr($map_id); ?>-org-type">Organization Type</label>

@@ -43,11 +43,15 @@
 
 	// ── Single map init ───────────────────────────────────────────
 	function initSingleMap( wrap, style ) {
-		const mapEl         = wrap.querySelector( '.grantee-map-canvas' );
-		const orgTypeSelect = wrap.querySelector( '.grantee-filter-org-type' );
-		const countEl       = wrap.querySelector( '.grantee-count' );
-		const loadingEl     = wrap.querySelector( '.grantee-map-loading' );
-		const resetBtn      = wrap.querySelector( '.grantee-filter-reset' );
+		const mapEl           = wrap.querySelector( '.grantee-map-canvas' );
+		const orgTypeSelect   = wrap.querySelector( '.grantee-filter-org-type' );
+		const countEl         = wrap.querySelector( '.grantee-count' );
+		const loadingEl       = wrap.querySelector( '.grantee-map-loading' );
+		const resetBtn        = wrap.querySelector( '.grantee-filter-reset' );
+		const timelineWrap    = wrap.querySelector( '.grantee-timeline' );
+		const timelineSlider  = wrap.querySelector( '.grantee-timeline-slider' );
+		const timelineYearEl  = wrap.querySelector( '.grantee-timeline-year' );
+		const timelinePlayBtn = wrap.querySelector( '.grantee-timeline-play' );
 
 		if ( ! mapEl ) return;
 
@@ -121,7 +125,7 @@
 
 			return L.divIcon( {
 				html:        svg,
-				className:   '',
+				className:   'gm-marker-pop',
 				iconSize:    [ size, size ],
 				iconAnchor:  [ cx,   cy   ],
 				popupAnchor: [ 0,    -( r + 4 ) ],
@@ -129,7 +133,11 @@
 		}
 
 		// ── Data ──────────────────────────────────────────────────
-		let allOrgs = [];
+		let allOrgs     = [];
+		let minYear     = null;
+		let maxYear     = null;
+		let playTimer   = null;
+		const markerIndex = new Map(); // org id -> L.Marker currently on the map
 
 		setLoading( true );
 
@@ -138,6 +146,7 @@
 			.then( ( orgs ) => {
 				allOrgs = orgs;
 				buildOrgTypeOptions();
+				buildTimeline();
 				applyFilters();
 				setLoading( false );
 			} )
@@ -169,34 +178,130 @@
 		}
 
 		// ── Filter change handler ─────────────────────────────────
-		if ( orgTypeSelect ) orgTypeSelect.addEventListener( 'change', applyFilters );
+		if ( orgTypeSelect ) orgTypeSelect.addEventListener( 'change', () => applyFilters() );
 
 		if ( resetBtn ) {
 			resetBtn.addEventListener( 'click', () => {
 				if ( orgTypeSelect ) orgTypeSelect.value = '';
+				stopPlayback();
+				if ( timelineSlider && maxYear !== null ) {
+					timelineSlider.value = maxYear;
+					updateTimelineDisplay( maxYear );
+				}
 				applyFilters();
 			} );
 		}
 
-		// ── Apply filter, update markers and count ────────────────
-		function applyFilters() {
-			const orgType = orgTypeSelect ? orgTypeSelect.value : '';
-
-			const filtered = allOrgs.filter( ( g ) =>
-				! orgType || ( g.org_types || [] ).some( ( t ) => t.slug === orgType )
-			);
-
-			renderMarkers( filtered );
-			if ( countEl ) countEl.textContent = filtered.length;
-			if ( resetBtn ) resetBtn.hidden = ! orgType;
+		// ── Timeline: year awarded is read from each org's `years` array ─
+		function getOrgYears( g ) {
+			// parseInt tolerates grant-cycle labels like "2023-2024"
+			return ( g.years || [] )
+				.map( ( y ) => parseInt( y, 10 ) )
+				.filter( ( y ) => ! isNaN( y ) );
 		}
 
-		// ── Render markers ────────────────────────────────────────
-		function renderMarkers( orgs ) {
-			markers.clearLayers();
+		function buildTimeline() {
+			if ( ! timelineSlider || ! timelineWrap ) return;
+
+			const years = allOrgs.flatMap( getOrgYears );
+			if ( years.length === 0 ) return;
+
+			minYear = Math.min( ...years );
+			maxYear = Math.max( ...years );
+			if ( minYear === maxYear ) return;
+
+			timelineSlider.min   = minYear;
+			timelineSlider.max   = maxYear;
+			timelineSlider.value = maxYear;
+			timelineWrap.hidden  = false;
+			updateTimelineDisplay( maxYear );
+
+			timelineSlider.addEventListener( 'input', () => {
+				stopPlayback();
+				updateTimelineDisplay( timelineSlider.value );
+				applyFilters( { fit: false } );
+			} );
+
+			if ( timelinePlayBtn ) {
+				timelinePlayBtn.addEventListener( 'click', () => {
+					playTimer ? stopPlayback() : startPlayback();
+				} );
+			}
+		}
+
+		function updateTimelineDisplay( year ) {
+			year = parseInt( year, 10 );
+			if ( timelineYearEl ) timelineYearEl.textContent = year === maxYear ? `${ year } (all)` : String( year );
+			if ( timelineSlider ) {
+				timelineSlider.setAttribute( 'aria-valuetext', `Year ${ year }` );
+				const pct = ( ( year - minYear ) / ( maxYear - minYear ) ) * 100;
+				timelineSlider.style.background = `linear-gradient(to right, var(--gm-accent) ${ pct }%, #e5e7eb ${ pct }%)`;
+			}
+		}
+
+		function startPlayback() {
+			if ( ! timelineSlider || minYear === null ) return;
+			timelineSlider.value = minYear;
+			updateTimelineDisplay( minYear );
+			applyFilters( { fit: false } );
+
+			if ( timelinePlayBtn ) {
+				timelinePlayBtn.classList.add( 'is-playing' );
+				timelinePlayBtn.setAttribute( 'aria-label', 'Pause timeline' );
+			}
+
+			playTimer = setInterval( () => {
+				const next = parseInt( timelineSlider.value, 10 ) + 1;
+				if ( next > maxYear ) {
+					stopPlayback();
+					return;
+				}
+				timelineSlider.value = next;
+				updateTimelineDisplay( next );
+				applyFilters( { fit: false } );
+			}, 900 );
+		}
+
+		function stopPlayback() {
+			if ( playTimer ) {
+				clearInterval( playTimer );
+				playTimer = null;
+			}
+			if ( timelinePlayBtn ) {
+				timelinePlayBtn.classList.remove( 'is-playing' );
+				timelinePlayBtn.setAttribute( 'aria-label', 'Play timeline' );
+			}
+		}
+
+		// ── Apply filter, update markers and count ────────────────
+		function applyFilters( { fit = true } = {} ) {
+			const orgType    = orgTypeSelect ? orgTypeSelect.value : '';
+			const yearCutoff = timelineSlider && timelineWrap && ! timelineWrap.hidden ? parseInt( timelineSlider.value, 10 ) : null;
+
+			const filtered = allOrgs.filter( ( g ) => {
+				if ( orgType && ! ( g.org_types || [] ).some( ( t ) => t.slug === orgType ) ) return false;
+				if ( yearCutoff !== null ) {
+					const orgYears = getOrgYears( g );
+					if ( orgYears.length > 0 && Math.min( ...orgYears ) > yearCutoff ) return false;
+				}
+				return true;
+			} );
+
+			renderMarkers( filtered, fit );
+			if ( countEl ) countEl.textContent = filtered.length;
+			if ( resetBtn ) resetBtn.hidden = ! orgType && yearCutoff === maxYear;
+		}
+
+		// ── Render markers (diffed so unchanged orgs don't re-animate) ─
+		function renderMarkers( orgs, fit = true ) {
+			const nextIds = new Set();
 
 			orgs.forEach( ( g ) => {
 				if ( ! g.lat || ! g.lng ) return;
+				nextIds.add( g.id );
+
+				if ( markerIndex.has( g.id ) ) return;
+
 				const colors = ( g.org_types || [] ).map( ( t ) => t.color ).filter( Boolean );
 				const icon   = makeIcon( colors );
 				const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
@@ -206,9 +311,17 @@
 					if ( el ) el.focus();
 				} );
 				markers.addLayer( marker );
+				markerIndex.set( g.id, marker );
 			} );
 
-			if ( orgs.length > 0 ) {
+			markerIndex.forEach( ( marker, id ) => {
+				if ( ! nextIds.has( id ) ) {
+					markers.removeLayer( marker );
+					markerIndex.delete( id );
+				}
+			} );
+
+			if ( fit && nextIds.size > 0 ) {
 				map.fitBounds( markers.getBounds(), { padding: [ 40, 40 ], maxZoom: 12 } );
 			}
 		}
