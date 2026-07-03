@@ -45,7 +45,6 @@
 	function initSingleMap( wrap, style ) {
 		const mapEl           = wrap.querySelector( '.grantee-map-canvas' );
 		const typeChipsEl     = wrap.querySelector( '.grantee-type-chips' );
-		const searchInput     = wrap.querySelector( '.grantee-search' );
 		const countEl         = wrap.querySelector( '.grantee-count' );
 		const loadingEl       = wrap.querySelector( '.grantee-map-loading' );
 		const resetBtn        = wrap.querySelector( '.grantee-filter-reset' );
@@ -94,7 +93,7 @@
 		const markerBorder       = style.marker?.borderColor || '#ffffff';
 		const markerR            = style.marker?.size        || 11;
 
-		function makeIcon( colors ) {
+		function makeIcon( colors, delayMs = 0 ) {
 			const r    = markerR;
 			const size = r * 2 + 4;
 			const cx   = r + 2;
@@ -125,8 +124,13 @@
 			}
 
 			return L.divIcon( {
-				html:        svg,
-				className:   'gm-marker-pop',
+				// The pop-in animation lives on an inner wrapper, not this element —
+				// Leaflet positions markers via an inline `transform: translate3d(...)`
+				// on the icon's own div, and a CSS animation on the same property
+				// would hijack it for the animation's duration, making the marker
+				// briefly render at (0,0) before snapping to its real position.
+				html:        `<div class="gm-marker-pop" style="animation-delay:${ delayMs }ms">${ svg }</div>`,
+				className:   '',
 				iconSize:    [ size, size ],
 				iconAnchor:  [ cx,   cy   ],
 				popupAnchor: [ 0,    -( r + 4 ) ],
@@ -138,7 +142,6 @@
 		let minYear        = null;
 		let maxYear        = null;
 		let playTimer      = null;
-		let searchDebounce = null;
 		const activeTypes  = new Set();
 		const markerIndex  = new Map(); // org id -> L.Marker currently on the map
 
@@ -206,19 +209,10 @@
 			return luminance > 0.6 ? '#111' : '#fff';
 		}
 
-		// ── Search input handler (debounced) ──────────────────────
-		if ( searchInput ) {
-			searchInput.addEventListener( 'input', () => {
-				clearTimeout( searchDebounce );
-				searchDebounce = setTimeout( () => applyFilters(), 250 );
-			} );
-		}
-
 		if ( resetBtn ) {
 			resetBtn.addEventListener( 'click', () => {
 				activeTypes.clear();
 				typeChipsEl?.querySelectorAll( '.grantee-type-chip' ).forEach( ( chip ) => chip.setAttribute( 'aria-pressed', 'false' ) );
-				if ( searchInput ) searchInput.value = '';
 				stopPlayback();
 				if ( timelineSlider && maxYear !== null ) {
 					timelineSlider.value = maxYear;
@@ -311,12 +305,10 @@
 
 		// ── Apply filter, update markers and count ────────────────
 		function applyFilters( { fit = true } = {} ) {
-			const searchTerm = searchInput ? searchInput.value.trim().toLowerCase() : '';
 			const yearCutoff = timelineSlider && timelineWrap && ! timelineWrap.hidden ? parseInt( timelineSlider.value, 10 ) : null;
 
 			const filtered = allOrgs.filter( ( g ) => {
 				if ( activeTypes.size > 0 && ! ( g.org_types || [] ).some( ( t ) => activeTypes.has( t.slug ) ) ) return false;
-				if ( searchTerm && ! ( g.title || '' ).toLowerCase().includes( searchTerm ) ) return false;
 				if ( yearCutoff !== null ) {
 					const orgYears = getOrgYears( g );
 					if ( orgYears.length > 0 && Math.min( ...orgYears ) > yearCutoff ) return false;
@@ -324,25 +316,33 @@
 				return true;
 			} );
 
-			const isDefaultView = activeTypes.size === 0 && ! searchTerm && ( yearCutoff === null || yearCutoff === maxYear );
+			const isDefaultView = activeTypes.size === 0 && ( yearCutoff === null || yearCutoff === maxYear );
 
 			renderMarkers( filtered, { fit, isDefaultView } );
 			if ( countEl ) countEl.textContent = filtered.length;
-			if ( resetBtn ) resetBtn.hidden = activeTypes.size === 0 && ! searchTerm && yearCutoff === maxYear;
+			if ( resetBtn ) resetBtn.hidden = activeTypes.size === 0 && yearCutoff === maxYear;
 		}
 
 		// ── Render markers (diffed so unchanged orgs don't re-animate) ─
 		function renderMarkers( orgs, { fit = true, isDefaultView = false } = {} ) {
 			const nextIds = new Set();
-
 			orgs.forEach( ( g ) => {
-				if ( ! g.lat || ! g.lng ) return;
-				nextIds.add( g.id );
+				if ( g.lat && g.lng ) nextIds.add( g.id );
+			} );
 
-				if ( markerIndex.has( g.id ) ) return;
+			// Sort newly-appearing orgs west-to-east so the stagger reads as a
+			// clear geographic sweep — many of these get folded into cluster
+			// bubbles by Leaflet before ever painting, so ordering by array
+			// index alone made the few that do render solo pop in a scattered,
+			// hard-to-notice order instead of a visible wave.
+			const newOrgs = orgs
+				.filter( ( g ) => g.lat && g.lng && ! markerIndex.has( g.id ) )
+				.sort( ( a, b ) => a.lng - b.lng );
 
+			newOrgs.forEach( ( g, i ) => {
+				const delay  = Math.min( i * 35, 900 );
 				const colors = ( g.org_types || [] ).map( ( t ) => t.color ).filter( Boolean );
-				const icon   = makeIcon( colors );
+				const icon   = makeIcon( colors, delay );
 				const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
 				marker.bindPopup( buildPopup( g ), { maxWidth: 340, className: 'grantee-popup' } );
 				marker.on( 'popupclose', () => {

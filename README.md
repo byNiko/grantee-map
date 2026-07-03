@@ -1,6 +1,6 @@
 # Grantee Map
 
-An interactive Leaflet map of grantee organizations with color-coded markers, a name search box, multi-select organization-type filter chips (which double as a legend), and a year timeline scrubber that animates the foundation's reach growing over time. Built for WordPress + ACF Pro.
+An interactive Leaflet map of grantee organizations with color-coded markers, multi-select organization-type filter chips (which double as a legend), and a year timeline scrubber that animates the foundation's reach growing over time. Built for WordPress + ACF Pro.
 
 ---
 
@@ -23,7 +23,7 @@ An interactive Leaflet map of grantee organizations with color-coded markers, a 
 | Taxonomies | `grant-cycle`, `grant-types`, `disciplines` on `wilhelm_grantee`. Only registered if not already present. |
 | ACF field groups | Loaded from `acf-json/` — org location, website, image, and relationship to awards. |
 | REST endpoint | `GET /wp-json/grantees/v1/map` — returns all orgs with embedded org type data. Cached per org via transients. |
-| `[grantees_map]` shortcode | Renders the map with a name search box, multi-select org-type filter chips, a year timeline scrubber, and a live grantee count. |
+| `[grantees_map]` shortcode | Renders the map with multi-select org-type filter chips, a year timeline scrubber, and a live grantee count. |
 | Page template | **Grantee Map** page template (registered from the plugin, no theme file needed). |
 | Bidirectional sync | Keeps the org→award and award→org relationship fields in sync on save. |
 | Migration tool | Creates org posts from existing award posts grouped by title. |
@@ -127,7 +127,7 @@ Create a new page and assign the **Grantee Map** page template under **Page Attr
 | `center_lng` | `-98.35` | Initial map center longitude |
 | `zoom` | `4` | Initial zoom level. Fractional values (e.g. `4.5`) are supported — the map uses `zoomSnap: 0.25`. |
 
-The default (unfiltered) view always uses `center_lat`/`center_lng`/`zoom` as-is rather than fitting to marker bounds, so a few outlying orgs (e.g. Caribbean locations) don't zoom the map out over open ocean. If the default framing looks too wide or too tight for a given page, adjust `zoom` rather than relying on auto-fit. Once a search, org-type chip, or timeline year narrows the results, the map does fit/fly to the filtered markers.
+The default (unfiltered) view always uses `center_lat`/`center_lng`/`zoom` as-is rather than fitting to marker bounds, so a few outlying orgs (e.g. Caribbean locations) don't zoom the map out over open ocean. If the default framing looks too wide or too tight for a given page, adjust `zoom` rather than relying on auto-fit. Once an org-type chip or timeline year narrows the results, the map does fit/fly to the filtered markers.
 
 The map height is controlled by CSS (`aspect-ratio: 100 / 66` by default) rather than a shortcode attribute.
 
@@ -135,12 +135,11 @@ The map height is controlled by CSS (`aspect-ratio: 100 / 66` by default) rather
 
 ## Features
 
-- **Search** — a text box filters grantees by name as you type.
 - **Organization type chips** — colored, multi-select chips (colors match the marker dots, so they also serve as a legend). Selecting more than one is an OR filter.
 - **Year timeline** — a scrubber below the map filters to orgs whose earliest award year is at or before the selected year, so dragging it shows the foundation's geographic reach growing over time. The play button animates automatically from the earliest to the latest year. Only appears if grant-cycle year data exists and spans more than one year.
-- **Fly-to on single result** — when search, chips, and/or the timeline narrow the map down to exactly one grantee, the map flies to it and opens its popup instead of doing a generic bounds fit.
+- **Fly-to on single result** — when chips and/or the timeline narrow the map down to exactly one grantee, the map flies to it and opens its popup instead of doing a generic bounds fit.
 - **Marker pop-in animation** — newly appearing markers animate in with a small scale/fade, most noticeable while scrubbing or playing the timeline. Respects `prefers-reduced-motion`.
-- **Reset** — clears search, chips, and the timeline back to the default view in one click. Only shown when a filter is active.
+- **Reset** — clears chips and the timeline back to the default view in one click. Only shown when a filter is active.
 
 ---
 

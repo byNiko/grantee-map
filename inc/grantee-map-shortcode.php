@@ -130,10 +130,6 @@ function grantee_map_shortcode($atts) {
         </div>
 
         <div class="grantee-map-filters">
-            <div class="grantee-filter-group">
-                <label for="<?php echo esc_attr($map_id); ?>-search">Search grantees</label>
-                <input type="search" id="<?php echo esc_attr($map_id); ?>-search" class="grantee-search" placeholder="Search grantees…" autocomplete="off">
-            </div>
             <div class="grantee-filter-group grantee-filter-types">
                 <span class="grantee-filter-group-label" id="<?php echo esc_attr($map_id); ?>-types-label">Organization Type</span>
                 <div class="grantee-type-chips" role="group" aria-labelledby="<?php echo esc_attr($map_id); ?>-types-label"></div>
