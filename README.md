@@ -138,7 +138,8 @@ The map height is controlled by CSS (`aspect-ratio: 100 / 66` by default) rather
 - **Organization type chips** — colored, multi-select chips (colors match the marker dots, so they also serve as a legend). Selecting more than one is an OR filter.
 - **Year timeline** — a scrubber below the map filters to orgs whose earliest award year is at or before the selected year, so dragging it shows the foundation's geographic reach growing over time. The play button animates automatically from the earliest to the latest year. Only appears if grant-cycle year data exists and spans more than one year.
 - **Fly-to on single result** — when chips and/or the timeline narrow the map down to exactly one grantee, the map flies to it and opens its popup instead of doing a generic bounds fit.
-- **Marker pop-in animation** — newly appearing markers animate in with a small scale/fade, most noticeable while scrubbing or playing the timeline. Respects `prefers-reduced-motion`.
+- **Marker pop-in animation** — newly appearing markers animate in with a small scale/fade, staggered west-to-east so a large batch (e.g. initial load) reads as a sweep rather than everything appearing at once. Respects `prefers-reduced-motion`.
+- **Composition-aware clusters** — cluster bubbles size up with how many orgs they group and tint toward the org-type colors inside them, so a cluster hints at its makeup instead of being a flat circle.
 - **Reset** — clears chips and the timeline back to the default view in one click. Only shown when a filter is active.
 
 ---
