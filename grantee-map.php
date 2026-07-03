@@ -51,3 +51,4 @@ require GRANTEE_MAP_DIR . 'inc/grantee-migration.php';
 require GRANTEE_MAP_DIR . 'inc/grantee-orphans.php';
 require GRANTEE_MAP_DIR . 'inc/grantee-seed-locations.php';
 require GRANTEE_MAP_DIR . 'inc/grantee-org-type-seeder.php';
+require GRANTEE_MAP_DIR . 'inc/grantee-cache.php';
