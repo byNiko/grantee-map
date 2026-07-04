@@ -66,6 +66,45 @@
 			detectRetina: !! tiles.retina,
 		} ).addTo( map );
 
+		// ── Marker tooltip vs. popup coordination ──────────────────
+		// Listening on the map (not on each marker) because a marker's own
+		// popupclose event doesn't reliably fire when the popup is closed via
+		// the map's "click elsewhere closes it" behavior — only when the same
+		// marker's own click toggles it shut. Map-level popupopen/popupclose
+		// fire consistently regardless of how the popup was closed.
+		//
+		// closeTooltip(), not unbindTooltip() — unbindTooltip only removes the
+		// binding for *future* opens, it doesn't hide one that's already open
+		// (confirmed directly against the Leaflet API, not assumed). Once
+		// closed this way it stays closed on its own: tooltip visibility is
+		// driven by discrete mouseover/mouseout DOM events, not a continuous
+		// "is the mouse still over this element" check, so it won't reappear
+		// just because the cursor never left — only a fresh mouseover will
+		// reopen it, which is what we want once a popup has closed too.
+		map.on( 'popupopen', ( e ) => {
+			const src = e.popup._source;
+			if ( ! src ) return;
+			if ( typeof src.closeTooltip === 'function' ) src.closeTooltip();
+			const el = src.getElement?.();
+			if ( el ) el.classList.add( 'gm-marker-selected' );
+		} );
+		map.on( 'popupclose', ( e ) => {
+			const src = e.popup._source;
+			if ( ! src ) return;
+			const el = src.getElement?.();
+			if ( el ) {
+				el.classList.remove( 'gm-marker-selected' );
+				// Returning focus here is for keyboard users (so tabbing/Escape
+				// flows naturally after closing a popup) — but focusing a marker
+				// also triggers Leaflet's own focus-based tooltip display (the
+				// same mechanism that shows tooltips to keyboard users tabbing
+				// onto a marker), which pops the tooltip back up for mouse users
+				// too. Close it again immediately after.
+				el.focus();
+				if ( typeof src.closeTooltip === 'function' ) src.closeTooltip();
+			}
+		} );
+
 		// ── Marker cluster ────────────────────────────────────────
 		const markers = L.markerClusterGroup( {
 			showCoverageOnHover: false,
@@ -150,19 +189,20 @@
 				</svg>`;
 			}
 
-			// The pop-in animation lives on an inner wrapper, not this element —
-			// Leaflet positions markers via an inline `transform: translate3d(...)`
-			// on the icon's own div, and a CSS animation on the same property
-			// would hijack it for the animation's duration, making the marker
-			// briefly render at (0,0) before snapping to its real position.
+			// The pop-in animation and the hover/selected scale both live on this
+			// inner wrapper, not the outer icon element — Leaflet positions
+			// markers via an inline `transform: translate3d(...)` on the icon's
+			// own div, and any CSS also driving `transform` on that same element
+			// would hijack it for the duration, making the marker briefly render
+			// at (0,0) before snapping to its real position.
 			//
-			// delayMs === null means "no animation at all" — used once a marker's
-			// one-time reveal has already played, so a later icon swap (e.g. after
-			// Leaflet recreates this marker's DOM element when a cluster unfolds)
-			// doesn't replay the pop from scratch.
-			const html = delayMs === null
-				? svg
-				: `<div class="gm-marker-pop" style="animation-delay:${ delayMs }ms">${ svg }</div>`;
+			// delayMs === null means "no pop-in" — used once a marker's one-time
+			// reveal has already played, so a later icon swap (e.g. after Leaflet
+			// recreates this marker's DOM element when a cluster unfolds) doesn't
+			// replay the pop from scratch.
+			const innerClass = delayMs === null ? 'gm-marker-inner' : 'gm-marker-inner gm-marker-pop';
+			const styleAttr  = delayMs === null ? '' : ` style="animation-delay:${ delayMs }ms"`;
+			const html       = `<div class="${ innerClass }"${ styleAttr }>${ svg }</div>`;
 
 			return L.divIcon( {
 				html,
@@ -405,10 +445,8 @@
 				const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
 				marker.orgColors = colors; // read by iconCreateFunction to color cluster bubbles
 				marker.bindPopup( buildPopup( g ), { maxWidth: 340, className: 'grantee-popup' } );
-				marker.on( 'popupclose', () => {
-					const el = marker.getElement();
-					if ( el ) el.focus();
-				} );
+				marker.bindTooltip( escHtml( g.title ), { direction: 'top', offset: [ 0, -( markerR + 6 ) ], className: 'grantee-tooltip' } );
+
 				markers.addLayer( marker );
 				markerIndex.set( g.id, marker );
 
