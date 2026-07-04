@@ -140,6 +140,7 @@ The map height is controlled by CSS (`aspect-ratio: 100 / 66` by default) rather
 - **Fly-to on single result** — when chips and/or the timeline narrow the map down to exactly one grantee, the map flies to it and opens its popup instead of doing a generic bounds fit.
 - **Marker pop-in animation** — newly appearing markers animate in with a small scale/fade, staggered west-to-east so a large batch (e.g. initial load) reads as a sweep rather than everything appearing at once. Respects `prefers-reduced-motion`.
 - **Composition-aware clusters** — cluster bubbles size up with how many orgs they group and tint toward the org-type colors inside them, so a cluster hints at its makeup instead of being a flat circle.
+- **Marker hover/click states** — hovering a marker shows its org name in a tooltip and scales it up slightly; clicking keeps that scaled look for as long as its popup stays open.
 - **Reset** — clears chips and the timeline back to the default view in one click. Only shown when a filter is active.
 
 ---
