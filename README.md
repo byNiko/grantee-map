@@ -126,6 +126,7 @@ Create a new page and assign the **Grantee Map** page template under **Page Attr
 | `center_lat` | `39.5` | Initial map center latitude |
 | `center_lng` | `-98.35` | Initial map center longitude |
 | `zoom` | `4` | Initial zoom level. Fractional values (e.g. `4.5`) are supported — the map uses `zoomSnap: 0.25`. |
+| `cluster_radius` | `30` | Pixel radius within which nearby markers are grouped into a cluster. Higher = more aggressive grouping. `0` disables clustering. Leaflet's default is `80`. |
 
 The default (unfiltered) view always uses `center_lat`/`center_lng`/`zoom` as-is rather than fitting to marker bounds, so a few outlying orgs (e.g. Caribbean locations) don't zoom the map out over open ocean. If the default framing looks too wide or too tight for a given page, adjust `zoom` rather than relying on auto-fit. Once an org-type chip or timeline year narrows the results, the map does fit/fly to the filtered markers.
 
@@ -199,7 +200,26 @@ All utilities require admin login and output a results page when run.
 | `/wp-admin/?check_grantee_orphans=1` | List award posts not linked to any org |
 | `/wp-admin/?seed_org_types=1` | Create default org type terms and randomly assign 1–3 to each org (dev/testing only) |
 | `/wp-admin/?seed_grantee_locations=1` | Seed placeholder map locations onto orgs that have no coordinates (dev/testing only) |
+| `/wp-admin/?backfill_grantee_coordinates=1` | Copy lat/lng from the Google Maps field into the manual coordinate fields (see below) |
 | `/wp-admin/?clear_grantee_map_cache=1` | Flush the cached map data for every org, forcing a rebuild on next map load |
+
+### Backfilling manual lat/lng coordinates
+
+Each org has two manual coordinate fields — **Latitude** and **Longitude** — that serve as a fallback if the Google Maps ACF field stops working (e.g. the API key is revoked or Google starts charging for geocoding).
+
+The REST endpoint prefers the manual fields and falls back to the Google Maps field automatically, so you can populate them now and they'll be ready if you ever need them.
+
+**To populate them from existing Google Maps data:**
+
+1. Go to **Theme Settings → Map Settings** and click **Run coordinate backfill →**
+   — or visit `/wp-admin/?backfill_grantee_coordinates=1` directly
+2. Click the **Run backfill →** link on the confirmation page
+3. You'll see a results table:
+   - **Filled** — lat/lng was copied from the Google Maps field
+   - **Already set** — manual coordinates already existed; skipped
+   - **No map data** — no Google Maps data to copy from; fix by editing the org and saving a location
+
+The tool is idempotent — it skips any org that already has manual coordinates, so it's safe to run more than once. It also clears each org's cached map data immediately so the REST endpoint picks up the new values without waiting for the cache to expire.
 
 ---
 

@@ -46,7 +46,9 @@ function grantee_get_org_map_data( $org ) {
     if ( $cached !== false ) return $cached;
 
     $map_data = get_field( 'grantee_map', $org->ID );
-    if ( empty( $map_data['lat'] ) || empty( $map_data['lng'] ) ) return null;
+    $lat      = (float) ( get_field( 'grantee_lat', $org->ID ) ?: ( $map_data['lat'] ?? 0 ) );
+    $lng      = (float) ( get_field( 'grantee_lng', $org->ID ) ?: ( $map_data['lng'] ?? 0 ) );
+    if ( ! $lat || ! $lng ) return null;
 
     $image_url = '';
     $image     = get_field( 'custom_image', $org->ID );
@@ -58,8 +60,8 @@ function grantee_get_org_map_data( $org ) {
         'id'           => $org->ID,
         'title'        => html_entity_decode( get_the_title( $org->ID ), ENT_QUOTES, 'UTF-8' ),
         'excerpt'      => wp_trim_words( $org->post_content, 25 ),
-        'lat'          => (float) $map_data['lat'],
-        'lng'          => (float) $map_data['lng'],
+        'lat'          => $lat,
+        'lng'          => $lng,
         'address'      => $map_data['address'] ?? '',
         'image'        => $image_url,
         'website_url'  => esc_url_raw( get_field( 'website_url', $org->ID ) ?: '' ),

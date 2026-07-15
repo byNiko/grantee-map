@@ -21,8 +21,43 @@
 
 	function applyStyleVars( style ) {
 		const root = document.documentElement;
-		root.style.setProperty( '--gm-accent', style.popup?.accentColor || '#1a1a1a' );
-		root.style.setProperty( '--gm-link',   style.popup?.linkColor   || '#1a1a1a' );
+		root.style.setProperty( '--gm-accent',        style.popup?.accentColor  || '#1a1a1a' );
+		root.style.setProperty( '--gm-link',          style.popup?.linkColor    || '#1a1a1a' );
+		root.style.setProperty( '--gm-marker-border', style.marker?.borderColor || '#ffffff' );
+	}
+
+	// Builds a hard-stop `linear-gradient(to right, ...)` — vertical color bands
+	// on a circular div (border-radius clips it) rather than an SVG pie/donut.
+	// `bands` is [{ color, weight }]; width is proportional to weight, so equal
+	// weights give equal-width bands. `gapPct` (0 = none) inserts a thin seam of
+	// `gapColor` between adjacent bands so they read as distinct segments
+	// without drawing a border between them (see dataviz mark-spec notes: gaps,
+	// not strokes, separate touching marks).
+	function buildBandGradient( bands, gapPct = 0, gapColor = '#ffffff' ) {
+		const n = bands.length;
+		if ( n === 0 ) return gapColor;
+		if ( n === 1 ) return bands[ 0 ].color;
+
+		const totalWeight = bands.reduce( ( sum, b ) => sum + b.weight, 0 );
+		const totalGap    = gapPct * ( n - 1 );
+		const usablePct   = 100 - totalGap;
+
+		const stops = [];
+		let pos = 0;
+		bands.forEach( ( band, i ) => {
+			const width = ( band.weight / totalWeight ) * usablePct;
+			const start = pos;
+			const end   = pos + width;
+			stops.push( `${ band.color } ${ start.toFixed( 2 ) }%`, `${ band.color } ${ end.toFixed( 2 ) }%` );
+			pos = end;
+			if ( i < n - 1 && gapPct > 0 ) {
+				const gapEnd = pos + gapPct;
+				stops.push( `${ gapColor } ${ pos.toFixed( 2 ) }%`, `${ gapColor } ${ gapEnd.toFixed( 2 ) }%` );
+				pos = gapEnd;
+			}
+		} );
+
+		return `linear-gradient(to right, ${ stops.join( ', ' ) })`;
 	}
 
 	function defaultStyle() {
@@ -41,7 +76,9 @@
 	// ── Single map init ───────────────────────────────────────────
 	function initSingleMap( wrap, style ) {
 		const mapEl           = wrap.querySelector( '.grantee-map-canvas' );
-		const typeChipsEl     = wrap.querySelector( '.grantee-type-chips' );
+		const typeDropdownEl  = wrap.querySelector( '.gm-dropdown-content' );
+		const typeDropbtnEl   = wrap.querySelector( '.gm-dropbtn' );
+		const typeDropbtnLabel = typeDropbtnEl?.querySelector( '.gm-dropbtn-label' );
 		const countEl         = wrap.querySelector( '.grantee-count' );
 		const loadingEl       = wrap.querySelector( '.grantee-map-loading' );
 		const resetBtn        = wrap.querySelector( '.grantee-filter-reset' );
@@ -52,9 +89,10 @@
 
 		if ( ! mapEl ) return;
 
-		const centerLat = parseFloat( wrap.dataset.centerLat ) || 39.5;
-		const centerLng = parseFloat( wrap.dataset.centerLng ) || -98.35;
-		const zoom      = parseFloat( wrap.dataset.zoom )      || 4;
+		const centerLat     = parseFloat( wrap.dataset.centerLat )     || 39.5;
+		const centerLng     = parseFloat( wrap.dataset.centerLng )     || -98.35;
+		const zoom          = parseFloat( wrap.dataset.zoom )          || 4;
+		const clusterRadius = parseInt(   wrap.dataset.clusterRadius ) ?? 30;
 
 		// ── Leaflet map ───────────────────────────────────────────
 		const map = L.map( mapEl, { center: [ centerLat, centerLng ], zoom, zoomSnap: 0.25, scrollWheelZoom: false } );
@@ -108,40 +146,34 @@
 		// ── Marker cluster ────────────────────────────────────────
 		const markers = L.markerClusterGroup( {
 			showCoverageOnHover: false,
-			maxClusterRadius:    50,
+			maxClusterRadius:    clusterRadius,
 			iconCreateFunction( cluster ) {
 				const childMarkers = cluster.getAllChildMarkers();
 				const count        = childMarkers.length;
 
-				// Tally org-type colors across every marker in the cluster so the
-				// bubble can show its composition, the same way a multi-type org's
-				// own marker shows a pie of its types.
-				const colorCounts = {};
+				// Tally org-type composition across every marker in the cluster,
+				// keyed by type name (not color) so it can be ordered the same
+				// alphabetical way as each org's own bands and the filter chips.
+				const nameCounts = {};
 				childMarkers.forEach( ( m ) => {
-					const cols = ( m.orgColors && m.orgColors.length ) ? m.orgColors : [ defaultMarkerColor ];
-					cols.forEach( ( c ) => { colorCounts[ c ] = ( colorCounts[ c ] || 0 ) + 1; } );
+					const types = ( m.orgTypes && m.orgTypes.length ) ? m.orgTypes : [ { name: '', color: defaultMarkerColor } ];
+					types.forEach( ( t ) => {
+						if ( ! nameCounts[ t.name ] ) nameCounts[ t.name ] = { color: t.color || defaultMarkerColor, count: 0 };
+						nameCounts[ t.name ].count++;
+					} );
 				} );
 
 				// Bigger clusters get a bigger bubble, capped so it never dwarfs
 				// the map.
 				const size = Math.round( Math.min( 30 + Math.sqrt( count ) * 5, 60 ) );
 
-				// Colors are pre-mixed toward white (not layered with CSS opacity)
-				// so the count text drawn in the same element stays fully legible.
-				const colors = Object.keys( colorCounts );
-				let background;
-				if ( colors.length <= 1 ) {
-					background = mixWithWhite( colors[ 0 ] || defaultMarkerColor, 0.3 );
-				} else {
-					const total = colors.reduce( ( sum, c ) => sum + colorCounts[ c ], 0 );
-					let pct     = 0;
-					const stops = colors.map( ( color ) => {
-						const start = pct;
-						pct += ( colorCounts[ color ] / total ) * 100;
-						return `${ mixWithWhite( color, 0.3 ) } ${ start.toFixed( 1 ) }% ${ pct.toFixed( 1 ) }%`;
-					} );
-					background = `conic-gradient(${ stops.join( ', ' ) })`;
-				}
+				// Bands are proportional to how much of the cluster each type is,
+				// pre-mixed toward white (not layered with CSS opacity) so the
+				// count text drawn over them stays legible.
+				const bands = Object.keys( nameCounts )
+					.sort( ( a, b ) => a.localeCompare( b ) )
+					.map( ( name ) => ( { color: mixWithWhite( nameCounts[ name ].color, 0.3 ), weight: nameCounts[ name ].count } ) );
+				const background = buildBandGradient( bands );
 
 				const html = `<div class="gm-cluster-wrap" role="img" aria-label="${count} organizations in this area" style="background:${background}">${count}</div>`;
 
@@ -154,10 +186,16 @@
 		} );
 		map.addLayer( markers );
 
-		// ── Per-org pie-segment icon ──────────────────────────────
+		// ── Per-org gradient icon ─────────────────────────────────
 		const defaultMarkerColor = style.marker?.color       || '#1a1a1a';
 		const markerBorder       = style.marker?.borderColor || '#ffffff';
 		const markerR            = style.marker?.size        || 11;
+
+		function buildMarkerGradient( colors ) {
+			if ( colors.length <= 1 ) return colors[ 0 ] || defaultMarkerColor;
+			if ( colors.length === 2 ) return `linear-gradient(to right, ${ colors[ 0 ] } 0%, ${ colors[ 1 ] } 100%)`;
+			return `linear-gradient(to right, ${ colors[ 0 ] } 0%, ${ colors[ 1 ] } 50%, ${ colors[ 2 ] } 100%)`;
+		}
 
 		function makeIcon( colors, delayMs = 0 ) {
 			const r    = markerR;
@@ -165,44 +203,26 @@
 			const cx   = r + 2;
 			const cy   = r + 2;
 
-			let svg;
-			if ( colors.length <= 1 ) {
-				const fill = colors[ 0 ] || defaultMarkerColor;
-				svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-					<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" stroke="${markerBorder}" stroke-width="2"/>
-				</svg>`;
-			} else {
-				const step   = ( 2 * Math.PI ) / colors.length;
-				const offset = -Math.PI / 2;
-				const slices = colors.map( ( color, i ) => {
-					const a1 = offset + i * step;
-					const a2 = offset + ( i + 1 ) * step;
-					const x1 = ( cx + r * Math.cos( a1 ) ).toFixed( 3 );
-					const y1 = ( cy + r * Math.sin( a1 ) ).toFixed( 3 );
-					const x2 = ( cx + r * Math.cos( a2 ) ).toFixed( 3 );
-					const y2 = ( cy + r * Math.sin( a2 ) ).toFixed( 3 );
-					return `<path d="M${cx},${cy} L${x1},${y1} A${r},${r} 0 0,1 ${x2},${y2} Z" fill="${color}"/>`;
-				} ).join( '' );
-				svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-					${slices}
-					<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${markerBorder}" stroke-width="2"/>
-				</svg>`;
-			}
+			const effectiveColors = colors.length > 0 ? colors : [ defaultMarkerColor ];
+			const background      = buildMarkerGradient( effectiveColors );
 
 			// The pop-in animation and the hover/selected scale both live on this
 			// inner wrapper, not the outer icon element — Leaflet positions
 			// markers via an inline `transform: translate3d(...)` on the icon's
 			// own div, and any CSS also driving `transform` on that same element
 			// would hijack it for the duration, making the marker briefly render
-			// at (0,0) before snapping to its real position.
+			// at (0,0) before snapping to its real position. The circular shape,
+			// its border, and the band colors all live here too (background is
+			// the only per-marker inline style; border color comes from the
+			// --gm-marker-border CSS var set once for the whole map).
 			//
 			// delayMs === null means "no pop-in" — used once a marker's one-time
 			// reveal has already played, so a later icon swap (e.g. after Leaflet
 			// recreates this marker's DOM element when a cluster unfolds) doesn't
 			// replay the pop from scratch.
 			const innerClass = delayMs === null ? 'gm-marker-inner' : 'gm-marker-inner gm-marker-pop';
-			const styleAttr  = delayMs === null ? '' : ` style="animation-delay:${ delayMs }ms"`;
-			const html       = `<div class="${ innerClass }"${ styleAttr }>${ svg }</div>`;
+			const delayStyle  = delayMs === null ? '' : `animation-delay:${ delayMs }ms;`;
+			const html        = `<div class="${ innerClass }" style="background:${ background };${ delayStyle }"></div>`;
 
 			return L.divIcon( {
 				html,
@@ -227,7 +247,7 @@
 			.then( ( r ) => r.json() )
 			.then( ( orgs ) => {
 				allOrgs = orgs;
-				buildTypeChips();
+				buildTypeDropdown();
 				buildTimeline();
 				applyFilters();
 				setLoading( false );
@@ -237,9 +257,9 @@
 				setLoading( false );
 			} );
 
-		// ── Build org type filter chips from data (also serves as legend) ─
-		function buildTypeChips() {
-			if ( ! typeChipsEl ) return;
+		// ── Build org type filter dropdown from data (also serves as legend) ─
+		function buildTypeDropdown() {
+			if ( ! typeDropdownEl ) return;
 
 			const counts = {};
 			allOrgs.forEach( ( g ) => {
@@ -252,27 +272,51 @@
 			Object.entries( counts )
 				.sort( ( a, b ) => a[ 1 ].name.localeCompare( b[ 1 ].name ) )
 				.forEach( ( [ slug, { name, count, color } ] ) => {
-					const chipColor = color || defaultMarkerColor;
-					const chip      = document.createElement( 'button' );
-					chip.type       = 'button';
-					chip.className  = 'grantee-type-chip';
-					chip.dataset.slug = slug;
-					chip.setAttribute( 'aria-pressed', 'false' );
-					chip.style.setProperty( '--chip-color', chipColor );
-					chip.style.setProperty( '--chip-text', contrastColor( chipColor ) );
-					chip.innerHTML  = `<span class="grantee-type-chip-swatch"></span>${ escHtml( name ) } (${ count })`;
-					chip.addEventListener( 'click', () => {
+					const itemColor = color || defaultMarkerColor;
+					const btn       = document.createElement( 'button' );
+					btn.type        = 'button';
+					btn.className   = 'gm-type-btn';
+					btn.dataset.slug = slug;
+					btn.setAttribute( 'aria-pressed', 'false' );
+					btn.style.setProperty( '--gm-item-color', itemColor );
+					btn.innerHTML   = `<span class="gm-type-swatch" aria-hidden="true"></span>${ escHtml( name ) } <span class="gm-type-count">(${ count })</span>`;
+					btn.addEventListener( 'click', () => {
 						if ( activeTypes.has( slug ) ) {
 							activeTypes.delete( slug );
-							chip.setAttribute( 'aria-pressed', 'false' );
+							btn.setAttribute( 'aria-pressed', 'false' );
 						} else {
 							activeTypes.add( slug );
-							chip.setAttribute( 'aria-pressed', 'true' );
+							btn.setAttribute( 'aria-pressed', 'true' );
 						}
+						updateDropbtnLabel();
 						applyFilters();
 					} );
-					typeChipsEl.appendChild( chip );
+					typeDropdownEl.appendChild( btn );
 				} );
+
+			// Open / close
+			if ( typeDropbtnEl ) {
+				typeDropbtnEl.addEventListener( 'click', ( e ) => {
+					e.stopPropagation();
+					const open = typeDropbtnEl.getAttribute( 'aria-expanded' ) === 'true';
+					typeDropbtnEl.setAttribute( 'aria-expanded', String( ! open ) );
+				} );
+				document.addEventListener( 'click', ( e ) => {
+					if ( ! typeDropbtnEl.closest( '.gm-dropdown' ).contains( e.target ) ) {
+						typeDropbtnEl.setAttribute( 'aria-expanded', 'false' );
+					}
+				} );
+				document.addEventListener( 'keydown', ( e ) => {
+					if ( e.key === 'Escape' ) typeDropbtnEl.setAttribute( 'aria-expanded', 'false' );
+				} );
+			}
+		}
+
+		function updateDropbtnLabel() {
+			if ( ! typeDropbtnLabel ) return;
+			typeDropbtnLabel.textContent = activeTypes.size > 0
+				? `Organization Type (${ activeTypes.size })`
+				: 'Organization Type';
 		}
 
 		function contrastColor( hex ) {
@@ -301,7 +345,9 @@
 		if ( resetBtn ) {
 			resetBtn.addEventListener( 'click', () => {
 				activeTypes.clear();
-				typeChipsEl?.querySelectorAll( '.grantee-type-chip' ).forEach( ( chip ) => chip.setAttribute( 'aria-pressed', 'false' ) );
+				typeDropdownEl?.querySelectorAll( '.gm-type-btn' ).forEach( ( btn ) => btn.setAttribute( 'aria-pressed', 'false' ) );
+				typeDropbtnEl?.setAttribute( 'aria-expanded', 'false' );
+				updateDropbtnLabel();
 				stopPlayback();
 				if ( timelineSlider && maxYear !== null ) {
 					timelineSlider.value = maxYear;
@@ -439,11 +485,18 @@
 			const capMs  = isInitialLoad ? 2500 : 900;
 
 			newOrgs.forEach( ( g, i ) => {
-				const delay  = Math.min( i * stepMs, capMs );
-				const colors = ( g.org_types || [] ).map( ( t ) => t.color ).filter( Boolean );
+				const delay = Math.min( i * stepMs, capMs );
+
+				// Sorted alphabetically by type name — not just the order the API
+				// happens to return — so a given org type always lands in the same
+				// left-to-right band position across every marker, and clusters can
+				// tally composition in that same order (see iconCreateFunction).
+				const orderedTypes = ( g.org_types || [] ).slice().sort( ( a, b ) => a.name.localeCompare( b.name ) );
+				const colors       = orderedTypes.map( ( t ) => t.color ).filter( Boolean );
+
 				const icon   = makeIcon( colors, delay );
 				const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
-				marker.orgColors = colors; // read by iconCreateFunction to color cluster bubbles
+				marker.orgTypes = orderedTypes; // read by iconCreateFunction to tally cluster composition
 				marker.bindPopup( buildPopup( g ), { maxWidth: 340, className: 'grantee-popup' } );
 				marker.bindTooltip( escHtml( g.title ), { direction: 'top', offset: [ 0, -( markerR + 6 ) ], className: 'grantee-tooltip' } );
 
