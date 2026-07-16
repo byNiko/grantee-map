@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Grantee Map
  * Description: Interactive Leaflet map of grantee organizations with client-side filtering by organization type.
- * Version:     2.2.0
+ * Version:     2.2.3
  * Author:      ByNiko and 3N Design
  * Text Domain: grantee-map
  * Plugin URI: https://github.com/byniko/grantee-map
