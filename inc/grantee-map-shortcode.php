@@ -35,10 +35,15 @@ function grantee_map_enqueue_assets() {
     wp_enqueue_script( 'leaflet-markercluster' );
     wp_enqueue_script( 'grantee-map' );
 
+    $org_types = get_taxonomy('org-types');
+
     wp_localize_script( 'grantee-map', 'GranteeMapConfig', [
         'restUrl'  => esc_url_raw( rest_url( 'grantees/v1' ) ),
         'nonce'    => wp_create_nonce( 'wp_rest' ),
         'styleUrl' => GRANTEE_MAP_URL . 'assets/js/grantee-map-style.json',
+        'organizationTypeLabel' => $org_types
+            ? $org_types->labels->singular_name
+            : 'Organization Type',
     ] );
 
     // If wp_head has already fired (e.g. do_shortcode() called from a theme template),
@@ -52,6 +57,10 @@ function grantee_map_enqueue_assets() {
 
 function grantee_map_shortcode($atts) {
     grantee_map_enqueue_assets();
+
+$org_types = get_taxonomy( 'org-types' );
+
+
 
     $atts = shortcode_atts([
         'height'         => '560px',
@@ -103,7 +112,7 @@ function grantee_map_shortcode($atts) {
             <div class="grantee-filter-group grantee-filter-types">
                 <div class="gm-dropdown">
                     <button type="button" class="gm-dropbtn" aria-expanded="false" aria-haspopup="true" id="<?php echo esc_attr($map_id); ?>-types-btn">
-                        <span class="gm-dropbtn-label">Organization Type</span>
+                        <span class="gm-dropbtn-label"><?php echo esc_html($org_types->labels->singular_name); ?></span>
                         <span class="gm-dropbtn-chevron" aria-hidden="true"></span>
                     </button>
                     <div class="gm-dropdown-content" role="group" aria-labelledby="<?php echo esc_attr($map_id); ?>-types-btn"></div>

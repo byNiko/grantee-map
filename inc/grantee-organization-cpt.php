@@ -57,16 +57,16 @@ add_action( 'init', function() {
 
 // ── Organization Type taxonomy ────────────────────────────────────────────────
 
-add_action( 'init', function() {
-    register_taxonomy( 'org-types', [ GM_ORG_CPT ], [
-        'labels'            => [ 'name' => 'Organization Types', 'singular_name' => 'Organization Type', 'menu_name' => 'Org Types' ],
-        'hierarchical'      => true,
-        'show_ui'           => true,
-        'show_admin_column' => true,
-        'rewrite'           => [ 'slug' => 'org-type' ],
-        'show_in_rest'      => true,
-    ] );
-}, 5 );
+// add_action( 'init', function() {
+//     register_taxonomy( 'org-types', [ GM_ORG_CPT ], [
+//         'labels'            => [ 'name' => 'Organization Types', 'singular_name' => 'Organization Type', 'menu_name' => 'Org Types' ],
+//         'hierarchical'      => true,
+//         'show_ui'           => true,
+//         'show_admin_column' => true,
+//         'rewrite'           => [ 'slug' => 'org-type' ],
+//         'show_in_rest'      => true,
+//     ] );
+// }, 5 );
 
 // ── Manual lat/lng override fields on grantee_org ────────────────────────────
 

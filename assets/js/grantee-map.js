@@ -313,10 +313,13 @@
 		}
 
 		function updateDropbtnLabel() {
-			if ( ! typeDropbtnLabel ) return;
-			typeDropbtnLabel.textContent = activeTypes.size > 0
-				? `Organization Type (${ activeTypes.size })`
-				: 'Organization Type';
+			if ( !typeDropbtnLabel ) return;
+			const label = GranteeMapConfig.organizationTypeLabel;
+
+			typeDropbtnLabel.textContent =
+				activeTypes.size > 0
+					? `${label} (${activeTypes.size})`
+					: 'Organization Type';
 		}
 
 		function contrastColor( hex ) {
