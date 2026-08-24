@@ -85,17 +85,52 @@
 		const timelineWrap    = wrap.querySelector( '.grantee-timeline' );
 		const timelineSlider  = wrap.querySelector( '.grantee-timeline-slider' );
 		const timelineYearEl  = wrap.querySelector( '.grantee-timeline-year' );
+		const timelineBubble  = wrap.querySelector( '.grantee-timeline-bubble' );
 		const timelinePlayBtn = wrap.querySelector( '.grantee-timeline-play' );
 
 		if ( ! mapEl ) return;
 
 		const centerLat     = parseFloat( wrap.dataset.centerLat )     || 39.5;
 		const centerLng     = parseFloat( wrap.dataset.centerLng )     || -98.35;
-		const zoom          = parseFloat( wrap.dataset.zoom )          || 4;
+		const isMobile      = window.innerWidth < 768;
+		const zoom          = parseFloat( isMobile ? ( wrap.dataset.mobileZoom || wrap.dataset.zoom ) : wrap.dataset.zoom ) || 4;
 		const clusterRadius = parseInt(   wrap.dataset.clusterRadius ) ?? 30;
 
 		// ── Leaflet map ───────────────────────────────────────────
-		const map = L.map( mapEl, { center: [ centerLat, centerLng ], zoom, zoomSnap: 0.25, scrollWheelZoom: false } );
+		const map = L.map( mapEl, {
+			center: [ centerLat, centerLng ],
+			zoom,
+			zoomSnap:        0.25,
+			scrollWheelZoom: false,
+			dragging:        ! isMobile,
+			tap:             ! isMobile,
+		} );
+
+		// On mobile: require two fingers to pan; show a hint on single-finger touch
+		if ( isMobile ) {
+			let hintTimer = null;
+			const hintEl  = document.createElement( 'div' );
+			hintEl.className = 'gm-scroll-hint';
+			hintEl.textContent = 'Use two fingers to move the map';
+			mapEl.appendChild( hintEl );
+
+			mapEl.addEventListener( 'touchstart', ( e ) => {
+				if ( e.touches.length >= 2 ) {
+					map.dragging.enable();
+					hintEl.classList.remove( 'is-visible' );
+					clearTimeout( hintTimer );
+				} else {
+					map.dragging.disable();
+					hintEl.classList.add( 'is-visible' );
+					clearTimeout( hintTimer );
+					hintTimer = setTimeout( () => hintEl.classList.remove( 'is-visible' ), 1500 );
+				}
+			}, { passive: true } );
+
+			mapEl.addEventListener( 'touchend', () => {
+				map.dragging.disable();
+			}, { passive: true } );
+		}
 
 		const tiles = style.tiles || {};
 		L.tileLayer( tiles.url, {
@@ -238,6 +273,7 @@
 		let minYear        = null;
 		let maxYear        = null;
 		let playTimer      = null;
+		let pendingTimers  = []; // staggered insertion timers, cancelled on re-render
 		const activeTypes  = new Set();
 		const markerIndex  = new Map(); // org id -> L.Marker currently on the map
 
@@ -249,8 +285,22 @@
 				allOrgs = orgs;
 				buildTypeDropdown();
 				buildTimeline();
-				applyFilters();
 				setLoading( false );
+
+				// Markers and timeline only appear when the map scrolls into view
+				const filtersEl = wrap.querySelector( '.grantee-map-filters' );
+				const introTarget = filtersEl || wrap;
+				let introFired = false;
+
+				const observer = new IntersectionObserver( ( entries ) => {
+					if ( introFired || ! entries[ 0 ].isIntersecting ) return;
+					introFired = true;
+					observer.disconnect();
+					applyFilters();
+					startPlayback();
+				}, { threshold: 0.1 } );
+
+				observer.observe( introTarget );
 			} )
 			.catch( ( err ) => {
 				console.error( 'Grantee map: failed to load data', err );
@@ -404,6 +454,11 @@
 				timelineSlider.setAttribute( 'aria-valuetext', `Year ${ year }` );
 				const pct = ( ( year - minYear ) / ( maxYear - minYear ) ) * 100;
 				timelineSlider.style.background = `linear-gradient(to right, var(--gm-accent) ${ pct }%, #e5e7eb ${ pct }%)`;
+				if ( timelineBubble ) {
+					// Offset accounts for thumb width (16px) so bubble tracks the thumb center
+					timelineBubble.textContent = String( year );
+					timelineBubble.style.left = `calc(${ pct }% + ${ 8 - pct * 0.16 }px)`;
+				}
 			}
 		}
 
@@ -463,6 +518,10 @@
 
 		// ── Render markers (diffed so unchanged orgs don't re-animate) ─
 		function renderMarkers( orgs, { fit = true, isDefaultView = false } = {} ) {
+			// Cancel any in-flight staggered insertions from a previous render
+			pendingTimers.forEach( clearTimeout );
+			pendingTimers = [];
+
 			const isInitialLoad = markerIndex.size === 0;
 
 			const nextIds = new Set();
@@ -470,50 +529,34 @@
 				if ( g.lat && g.lng ) nextIds.add( g.id );
 			} );
 
-			// Sort newly-appearing orgs west-to-east so the stagger reads as a
-			// clear geographic sweep — many of these get folded into cluster
-			// bubbles by Leaflet before ever painting, so ordering by array
-			// index alone made the few that do render solo pop in a scattered,
-			// hard-to-notice order instead of a visible wave.
+			// Sort newly-appearing orgs west-to-east for a geographic sweep.
 			const newOrgs = orgs
 				.filter( ( g ) => g.lat && g.lng && ! markerIndex.has( g.id ) )
 				.sort( ( a, b ) => a.lng - b.lng );
 
-			// The initial load reveals the whole dataset (~170 orgs) at once, so
-			// it uses a tighter per-marker step to keep the full west-to-east
-			// sweep from taking too long, while a filter/timeline change usually
-			// only reveals a handful of orgs and reads better with more space
-			// between them.
-			const stepMs = isInitialLoad ? 12   : 35;
-			const capMs  = isInitialLoad ? 2500 : 900;
+			// On initial load, actually delay each marker's insertion into the
+			// layer so they appear one by one during the intro flyTo. On
+			// subsequent renders (filter/timeline changes) add instantly.
+			const stepMs = isInitialLoad ? 15  : 0;
+			const capMs  = isInitialLoad ? 2000 : 0;
 
 			newOrgs.forEach( ( g, i ) => {
-				const delay = Math.min( i * stepMs, capMs );
-
-				// Sorted alphabetically by type name — not just the order the API
-				// happens to return — so a given org type always lands in the same
-				// left-to-right band position across every marker, and clusters can
-				// tally composition in that same order (see iconCreateFunction).
+				const delay        = Math.min( i * stepMs, capMs );
 				const orderedTypes = ( g.org_types || [] ).slice().sort( ( a, b ) => a.name.localeCompare( b.name ) );
 				const colors       = orderedTypes.map( ( t ) => t.color ).filter( Boolean );
 
-				const icon   = makeIcon( colors, delay );
-				const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
-				marker.orgTypes = orderedTypes; // read by iconCreateFunction to tally cluster composition
-				marker.bindPopup( buildPopup( g ), { maxWidth: 340, className: 'grantee-popup' } );
-				marker.bindTooltip( escHtml( g.title ), { direction: 'top', offset: [ 0, -( markerR + 6 ) ], className: 'grantee-tooltip' } );
+				const t = setTimeout( () => {
+					const icon   = makeIcon( colors, 0 );
+					const marker = L.marker( [ g.lat, g.lng ], { icon, alt: g.title } );
+					marker.orgTypes = orderedTypes;
+					marker.bindPopup( buildPopup( g ), { maxWidth: 340, className: 'grantee-popup' } );
+					marker.bindTooltip( escHtml( g.title ), { direction: 'top', offset: [ 0, -( markerR + 6 ) ], className: 'grantee-tooltip' } );
+					markers.addLayer( marker );
+					markerIndex.set( g.id, marker );
+					setTimeout( () => marker.setIcon( makeIcon( colors, null ) ), 320 );
+				}, delay );
 
-				markers.addLayer( marker );
-				markerIndex.set( g.id, marker );
-
-				// The pop-in animation is for this one-time reveal only. Left in
-				// place, Leaflet re-creating this marker's DOM element later —
-				// e.g. zooming into a cluster to unfold it — would replay it from
-				// scratch (a visible double-pop), since any freshly-inserted
-				// element with the animation class plays it regardless of the
-				// baked-in delay. Swap to a non-animated icon once this marker's
-				// reveal has actually finished.
-				setTimeout( () => marker.setIcon( makeIcon( colors, null ) ), delay + 320 );
+				pendingTimers.push( t );
 			} );
 
 			markerIndex.forEach( ( marker, id ) => {
@@ -545,8 +588,6 @@
 		function buildPopup( g ) {
 			const accent = style.popup?.accentColor || '#1a1a1a';
 
-			const terms = ( g.org_types || [] ).map( ( t ) => t.name ).join( ', ' );
-
 			let html = '<div class="grantee-popup-inner">';
 
 			if ( g.image ) {
@@ -556,8 +597,9 @@
 			html += `<div class="grantee-popup-body">`;
 			html += `<h3 class="grantee-popup-title">${ escHtml( g.title ) }</h3>`;
 
-			if ( terms ) {
-				html += `<p class="grantee-popup-terms">${ escHtml( terms ) }</p>`;
+			if ( g.disciplines && g.disciplines.length > 0 ) {
+				const terms = g.disciplines.map( ( t ) => escHtml( t.name ) ).join( ', ' );
+				html += `<p class="grantee-popup-terms">${ terms }</p>`;
 			}
 
 			if ( g.website_url && /^https?:\/\//i.test( g.website_url ) ) {
@@ -571,7 +613,7 @@
 				html += `<ul class="grantee-popup-awards-list">`;
 				g.awards.forEach( ( award ) => {
 					html += `<li class="grantee-award-item">
-						<a class="grantee-award-title" href="${ escHtml( award.permalink ) }" target="_blank" rel="noopener">${ escHtml( award.title ) }</a>
+						<a class="grantee-award-title" href="${ escHtml( award.permalink ) }" target="_blank" rel="noopener">${ escHtml( award.grant_types || award.title ) }</a>
 						<span class="grantee-award-year">${ award.year ? escHtml( String( award.year ) ) : '' }</span>
 						<span class="grantee-award-amount">${ award.amount ? escHtml( award.amount ) : '' }</span>
 					</li>`;

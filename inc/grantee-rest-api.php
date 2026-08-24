@@ -168,12 +168,18 @@ function grantee_get_org_awards( $org_id ) {
             $year = implode( ', ', wp_list_pluck( $terms, 'name' ) );
         }
 
+        $type_terms  = get_the_terms( $post_id, 'grant-types' );
+        $grant_types = ( $type_terms && ! is_wp_error( $type_terms ) )
+            ? implode( ', ', wp_list_pluck( $type_terms, 'name' ) )
+            : '';
+
         $awards[] = [
-            'id'        => $post_id,
-            'title'     => $post->post_title,
-            'year'      => $year,
-            'amount'    => get_field( 'amount', $post_id ) ?: '',
-            'permalink' => get_permalink( $post_id ),
+            'id'          => $post_id,
+            'title'       => $post->post_title,
+            'year'        => $year,
+            'amount'      => get_field( 'amount', $post_id ) ?: '',
+            'permalink'   => get_permalink( $post_id ),
+            'grant_types' => $grant_types,
         ];
     }
 

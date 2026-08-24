@@ -124,6 +124,39 @@
 	margin-left: 0;
 }
 
+.grantee-timeline-track {
+	flex: 1 1 auto;
+	position: relative;
+	display: flex;
+	align-items: center;
+	padding-top: 28px;
+}
+
+.grantee-timeline-bubble {
+	position: absolute;
+	top: 0;
+	transform: translateX(-50%);
+	background: var(--gm-accent, #1a1a1a);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 700;
+	line-height: 1;
+	padding: 3px 6px;
+	border-radius: 4px;
+	white-space: nowrap;
+	pointer-events: none;
+}
+
+.grantee-timeline-bubble::after {
+	content: '';
+	position: absolute;
+	top: 100%;
+	left: 50%;
+	transform: translateX(-50%);
+	border: 4px solid transparent;
+	border-top-color: var(--gm-accent, #1a1a1a);
+}
+
 .grantee-timeline-slider {
 	flex: 1 1 auto;
 	appearance: none;
@@ -386,6 +419,29 @@
 	color: #111;
 }
 
+/* ── Two-finger scroll hint (mobile) ────────────────────────── */
+.gm-scroll-hint {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.45);
+	color: #fff;
+	font-size: 15px;
+	font-weight: 600;
+	text-align: center;
+	padding: 0 24px;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s;
+	z-index: 500;
+}
+
+.gm-scroll-hint.is-visible {
+	opacity: 1;
+}
+
 /* ── Map Canvas ──────────────────────────────────────────────── */
 .grantee-map-aspect {
 	/* aspect-ratio: 100 / 66; */
@@ -482,8 +538,14 @@
 
 .grantee-popup-address,
 .grantee-popup-years,
-.grantee-popup-terms,
 .grantee-popup-excerpt {
+	font-size: 12px;
+	color: #555;
+	margin: 0 0 5px;
+	line-height: 1.4;
+}
+
+.grantee-popup-terms {
 	font-size: 12px;
 	color: #555;
 	margin: 0 0 5px;
@@ -577,5 +639,10 @@
 
 	.grantee-filter-count {
 		margin-left: 0;
+	}
+
+	.grantee-filter-reset {
+		align-self: flex-start;
+		padding: 0 28px;
 	}
 }

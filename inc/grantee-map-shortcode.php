@@ -68,6 +68,7 @@ $org_types = get_taxonomy( 'org-types' );
         'center_lat'     => '39.5',
         'center_lng'     => '-98.35',
         'zoom'           => '4',
+        'mobile_zoom'    => '3',
         'cluster_radius' => '30',
     ], $atts, 'grantees_map');
 
@@ -80,6 +81,7 @@ $org_types = get_taxonomy( 'org-types' );
         data-center-lat="<?php echo esc_attr($atts['center_lat']); ?>"
         data-center-lng="<?php echo esc_attr($atts['center_lng']); ?>"
         data-zoom="<?php echo esc_attr($atts['zoom']); ?>"
+        data-mobile-zoom="<?php echo esc_attr($atts['mobile_zoom']); ?>"
         data-cluster-radius="<?php echo esc_attr($atts['cluster_radius']); ?>">
 
 
@@ -104,7 +106,10 @@ $org_types = get_taxonomy( 'org-types' );
             <button type="button" class="grantee-timeline-play" aria-label="Play timeline">
                 <span class="grantee-timeline-play-icon" aria-hidden="true"></span>
             </button>
-            <input type="range" class="grantee-timeline-slider" min="0" max="1" step="1" value="1" aria-label="Filter grantees by year awarded">
+            <div class="grantee-timeline-track">
+                <input type="range" class="grantee-timeline-slider" min="0" max="1" step="1" value="1" aria-label="Filter grantees by year awarded">
+                <div class="grantee-timeline-bubble" aria-hidden="true"></div>
+            </div>
             <span class="grantee-timeline-year" aria-live="polite">All years</span>
         </div>
 
