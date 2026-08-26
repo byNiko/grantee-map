@@ -46,7 +46,9 @@ function grantee_get_org_map_data( $org ) {
     if ( $cached !== false ) return $cached;
 
     $map_data = get_field( 'grantee_map', $org->ID );
-    if ( empty( $map_data['lat'] ) || empty( $map_data['lng'] ) ) return null;
+    $lat      = (float) ( get_field( 'grantee_lat', $org->ID ) ?: ( $map_data['lat'] ?? 0 ) );
+    $lng      = (float) ( get_field( 'grantee_lng', $org->ID ) ?: ( $map_data['lng'] ?? 0 ) );
+    if ( ! $lat || ! $lng ) return null;
 
     $image_url = '';
     $image     = get_field( 'custom_image', $org->ID );
@@ -56,10 +58,10 @@ function grantee_get_org_map_data( $org ) {
 
     $data = [
         'id'           => $org->ID,
-        'title'        => get_the_title( $org->ID ),
+        'title'        => html_entity_decode( get_the_title( $org->ID ), ENT_QUOTES, 'UTF-8' ),
         'excerpt'      => wp_trim_words( $org->post_content, 25 ),
-        'lat'          => (float) $map_data['lat'],
-        'lng'          => (float) $map_data['lng'],
+        'lat'          => $lat,
+        'lng'          => $lng,
         'address'      => $map_data['address'] ?? '',
         'image'        => $image_url,
         'website_url'  => esc_url_raw( get_field( 'website_url', $org->ID ) ?: '' ),
@@ -166,12 +168,18 @@ function grantee_get_org_awards( $org_id ) {
             $year = implode( ', ', wp_list_pluck( $terms, 'name' ) );
         }
 
+        $type_terms  = get_the_terms( $post_id, 'grant-types' );
+        $grant_types = ( $type_terms && ! is_wp_error( $type_terms ) )
+            ? implode( ', ', wp_list_pluck( $type_terms, 'name' ) )
+            : '';
+
         $awards[] = [
-            'id'        => $post_id,
-            'title'     => $post->post_title,
-            'year'      => $year,
-            'amount'    => get_field( 'amount', $post_id ) ?: '',
-            'permalink' => get_permalink( $post_id ),
+            'id'          => $post_id,
+            'title'       => $post->post_title,
+            'year'        => $year,
+            'amount'      => get_field( 'amount', $post_id ) ?: '',
+            'permalink'   => get_permalink( $post_id ),
+            'grant_types' => $grant_types,
         ];
     }
 

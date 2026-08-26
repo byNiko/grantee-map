@@ -10,11 +10,6 @@
 		"borderColor": "#ffffff",
 		"size": 11
 	},
-	"cluster": {
-		"background": "#1a1a1a",
-		"color": "#ffffff",
-		"opacity": 1
-	},
 	"popup": {
 		"accentColor": "#1a1a1a",
 		"linkColor": "#1a1a1a"

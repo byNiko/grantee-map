@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Grantee Map
  * Description: Interactive Leaflet map of grantee organizations with client-side filtering by organization type.
- * Version:     1.3.3
+ * Version:     2.2.7
  * Author:      ByNiko and 3N Design
  * Text Domain: grantee-map
  * Plugin URI: https://github.com/byniko/grantee-map
@@ -51,3 +51,5 @@ require GRANTEE_MAP_DIR . 'inc/grantee-migration.php';
 require GRANTEE_MAP_DIR . 'inc/grantee-orphans.php';
 require GRANTEE_MAP_DIR . 'inc/grantee-seed-locations.php';
 require GRANTEE_MAP_DIR . 'inc/grantee-org-type-seeder.php';
+require GRANTEE_MAP_DIR . 'inc/grantee-backfill-coordinates.php';
+require GRANTEE_MAP_DIR . 'inc/grantee-cache.php';

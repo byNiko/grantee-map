@@ -57,16 +57,53 @@ add_action( 'init', function() {
 
 // ── Organization Type taxonomy ────────────────────────────────────────────────
 
-add_action( 'init', function() {
-    register_taxonomy( 'org-types', [ GM_ORG_CPT ], [
-        'labels'            => [ 'name' => 'Organization Types', 'singular_name' => 'Organization Type', 'menu_name' => 'Org Types' ],
-        'hierarchical'      => true,
-        'show_ui'           => true,
-        'show_admin_column' => true,
-        'rewrite'           => [ 'slug' => 'org-type' ],
-        'show_in_rest'      => true,
+// add_action( 'init', function() {
+//     register_taxonomy( 'org-types', [ GM_ORG_CPT ], [
+//         'labels'            => [ 'name' => 'Organization Types', 'singular_name' => 'Organization Type', 'menu_name' => 'Org Types' ],
+//         'hierarchical'      => true,
+//         'show_ui'           => true,
+//         'show_admin_column' => true,
+//         'rewrite'           => [ 'slug' => 'org-type' ],
+//         'show_in_rest'      => true,
+//     ] );
+// }, 5 );
+
+// ── Manual lat/lng override fields on grantee_org ────────────────────────────
+
+add_action( 'acf/init', function() {
+    if ( ! function_exists( 'acf_add_local_field_group' ) ) return;
+    acf_add_local_field_group( [
+        'key'      => 'group_grantee_org_coords',
+        'title'    => 'Manual Coordinates (fallback)',
+        'fields'   => [
+            [
+                'key'           => 'field_grantee_lat',
+                'label'         => 'Latitude',
+                'name'          => 'grantee_lat',
+                'type'          => 'number',
+                'instructions'  => 'Overrides the Google Maps field. e.g. 40.7128',
+                'placeholder'   => '',
+                'step'          => 'any',
+                'wrapper'       => [ 'width' => '50' ],
+            ],
+            [
+                'key'           => 'field_grantee_lng',
+                'label'         => 'Longitude',
+                'name'          => 'grantee_lng',
+                'type'          => 'number',
+                'instructions'  => 'Overrides the Google Maps field. e.g. -74.0060',
+                'placeholder'   => '',
+                'step'          => 'any',
+                'wrapper'       => [ 'width' => '50' ],
+            ],
+        ],
+        'location' => [ [ [
+            'param'    => 'post_type',
+            'operator' => '==',
+            'value'    => GM_ORG_CPT,
+        ] ] ],
     ] );
-}, 5 );
+} );
 
 // ── Color picker field on org-types terms ────────────────────────────────────
 

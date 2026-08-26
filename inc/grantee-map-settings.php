@@ -21,17 +21,40 @@ add_action( 'acf/init', function() {
     // Only attach if the options page exists — created by the theme.
     if ( function_exists( 'acf_get_options_page' ) && ! acf_get_options_page( 'theme-settings' ) ) return;
 
+    $backfill_url   = wp_nonce_url( admin_url( '?backfill_grantee_coordinates=1' ), 'grantee_backfill_coords' );
+    $clear_cache_url = wp_nonce_url( admin_url( '?clear_grantee_cache=1' ), 'grantee_clear_cache' );
+
     acf_add_local_field_group( [
         'key'    => 'group_grantee_map_api',
         'title'  => 'Map Settings',
-        'fields' => [ [
-            'key'               => 'field_grantee_google_maps_api_key',
-            'label'             => 'Google Maps API Key',
-            'name'              => 'grantee_google_maps_api_key',
-            'type'              => 'text',
-            'instructions'      => 'Required for the address picker on Grantee Org posts.',
-            'wrapper'           => [ 'width' => '50' ],
-        ] ],
+        'fields' => [
+            [
+                'key'          => 'field_grantee_google_maps_api_key',
+                'label'        => 'Google Maps API Key',
+                'name'         => 'grantee_google_maps_api_key',
+                'type'         => 'text',
+                'instructions' => 'Required for the address picker on Grantee Org posts.',
+                'wrapper'      => [ 'width' => '50' ],
+            ],
+            [
+                'key'      => 'field_grantee_backfill_coords_btn',
+                'label'    => 'Backfill Coordinates',
+                'name'     => '',
+                'type'     => 'message',
+                'message'  => '<a href="' . esc_url( $backfill_url ) . '" class="button button-secondary">Run coordinate backfill &rarr;</a><p class="description" style="margin-top:6px;">Copies lat/lng from the Google Maps field into the manual coordinate fields on every org that doesn\'t already have them set. Safe to run more than once.</p>',
+                'new_lines' => '',
+                'esc_html'  => 0,
+            ],
+            [
+                'key'      => 'field_grantee_clear_cache_btn',
+                'label'    => 'Clear Map Cache',
+                'name'     => '',
+                'type'     => 'message',
+                'message'  => '<a href="' . esc_url( $clear_cache_url ) . '" class="button button-secondary">Clear grantee cache &rarr;</a><p class="description" style="margin-top:6px;">Deletes all cached map API responses so the next page load rebuilds them fresh. Run this after changing grant types, disciplines, or any field that appears in the map popup.</p>',
+                'new_lines' => '',
+                'esc_html'  => 0,
+            ],
+        ],
         'location' => [ [ [
             'param'    => 'options_page',
             'operator' => '==',
