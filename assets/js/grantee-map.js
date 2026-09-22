@@ -132,8 +132,12 @@
 			}, { passive: true } );
 		}
 
-		const tiles = style.tiles || {};
-		L.tileLayer( tiles.url, {
+		const tiles   = style.tiles || {};
+		const cartoKey = GranteeMapConfig.cartoKey;
+		const tileUrl  = ( cartoKey && tiles.url )
+			? tiles.url + '?key=' + cartoKey
+			: ( tiles.url || '' );
+		L.tileLayer( tileUrl, {
 			attribution:  tiles.attribution || '',
 			maxZoom:      tiles.maxZoom     || 18,
 			detectRetina: !! tiles.retina,

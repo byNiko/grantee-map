@@ -37,6 +37,14 @@ add_action( 'acf/init', function() {
                 'wrapper'      => [ 'width' => '50' ],
             ],
             [
+                'key'          => 'field_grantee_carto_api_key',
+                'label'        => 'CARTO API Key',
+                'name'         => 'grantee_carto_api_key',
+                'type'         => 'text',
+                'instructions' => 'From your CARTO account — required for map tiles.',
+                'wrapper'      => [ 'width' => '50' ],
+            ],
+            [
                 'key'      => 'field_grantee_backfill_coords_btn',
                 'label'    => 'Backfill Coordinates',
                 'name'     => '',

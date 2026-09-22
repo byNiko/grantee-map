@@ -38,9 +38,10 @@ function grantee_map_enqueue_assets() {
     $org_types = get_taxonomy('org-types');
 
     wp_localize_script( 'grantee-map', 'GranteeMapConfig', [
-        'restUrl'  => esc_url_raw( rest_url( 'grantees/v1' ) ),
-        'nonce'    => wp_create_nonce( 'wp_rest' ),
-        'styleUrl' => GRANTEE_MAP_URL . 'assets/js/grantee-map-style.json',
+        'restUrl'   => esc_url_raw( rest_url( 'grantees/v1' ) ),
+        'nonce'     => wp_create_nonce( 'wp_rest' ),
+        'styleUrl'  => GRANTEE_MAP_URL . 'assets/js/grantee-map-style.json',
+        'cartoKey'  => get_field( 'grantee_carto_api_key', 'option' ) ?: '',
         'organizationTypeLabel' => $org_types
             ? $org_types->labels->singular_name
             : 'Organization Type',
