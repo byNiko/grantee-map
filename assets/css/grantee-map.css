@@ -632,6 +632,7 @@ p.grantee-popup-terms {
 	color: #767676;
 	white-space: nowrap;
 	text-align: right;
+	font-weight: 600;
 }
 
 .grantee-award-amount {
