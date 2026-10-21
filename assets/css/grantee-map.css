@@ -605,7 +605,7 @@ p.grantee-popup-terms {
 	margin: 0;
 	padding: 0;
 	display: grid;
-	grid-template-columns: 1fr auto auto;
+	grid-template-columns: 1fr auto;
 	column-gap: 12px;
 	row-gap: 6px;
 	align-items: baseline;

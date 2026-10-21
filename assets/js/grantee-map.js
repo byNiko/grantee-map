@@ -619,7 +619,6 @@
 					html += `<li class="grantee-award-item">
 						<a class="grantee-award-title" href="${ escHtml( award.permalink ) }" target="_blank" rel="noopener">${ escHtml( award.grant_types || award.title ) }</a>
 						<span class="grantee-award-year">${ award.year ? escHtml( String( award.year ) ) : '' }</span>
-						<span class="grantee-award-amount">${ award.amount ? escHtml( award.amount ) : '' }</span>
 					</li>`;
 				} );
 				html += `</ul></div>`;
